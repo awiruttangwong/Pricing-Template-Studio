@@ -1,0 +1,8 @@
+.cursor/
+.vscode/
+9arm-skills-main/
+ponytail-main/
+scratch/
+~$*.xlsx
+__pycache__/
+*.pyc

@@ -1,0 +1,576 @@
+<!DOCTYPE html>
+<html lang="th">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+  <meta http-equiv="Pragma" content="no-cache" />
+  <meta http-equiv="Expires" content="0" />
+  <meta name="description"
+    content="Pricing Template Studio — ระบบสร้างภาพตารางราคากลางขนส่ง" />
+  <title>Pricing Template Studio — ตารางราคากลางขนส่ง</title>
+
+  <!-- Favicon -->
+  <link rel="icon" type="image/png" sizes="48x48" href="icons/favicon-48.png" />
+  <link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png" />
+  <link rel="apple-touch-icon" sizes="180x180" href="icons/apple-touch-icon-180.png" />
+
+  <!-- Google Fonts: Sarabun + Inter -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&family=Inter:wght@400;500;600;700&display=swap"
+    rel="stylesheet" />
+
+  <!-- Styles -->
+  <link rel="stylesheet" href="assets/css/styles.css?v=20260617-2" />
+</head>
+
+<body>
+
+  <!-- ════════════════════════════════════════════════════════════════════════
+     APP SHELL
+     ════════════════════════════════════════════════════════════════════════ -->
+  <div class="app-shell">
+
+    <!-- ── HEADER ─────────────────────────────────────────────────────────── -->
+    <header class="app-header" role="banner">
+      <div class="app-header__brand">
+        <div class="app-header__icon" aria-hidden="true">
+          <img src="icons/2k.png" alt="" />
+        </div>
+        <div>
+          <div class="app-header__title">Pricing Template Studio</div>
+          <div class="app-header__subtitle">ระบบสร้างภาพตารางราคากลางขนส่ง</div>
+        </div>
+      </div>
+      <div class="app-header__actions">
+        <button id="btn-refresh" class="btn btn--ghost btn--sm" title="Refresh preview" aria-label="รีเฟรช preview">
+          ↻ Refresh
+        </button>
+        <button id="btn-export" class="btn btn--ghost btn--sm" aria-label="Export PNG route ที่เลือก">
+          <span class="btn__icon" aria-hidden="true">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 -960 960 960" fill="currentColor">
+              <path d="M160-80v-80h640v80H160Zm320-160L200-600h160v-280h240v280h160L480-240Zm0-130 116-150h-76v-280h-80v280h-76l116 150Zm0-150Z" />
+            </svg>
+          </span>
+          <span>Export PNG</span>
+        </button>
+        <button id="btn-export-all" class="btn btn--ghost btn--sm" aria-label="Export PNG ทุก route">
+          <span class="btn__icon" aria-hidden="true">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 -960 960 960" fill="currentColor">
+              <path d="M160-80v-80h640v80H160Zm320-160L200-600h160v-280h240v280h160L480-240Zm0-130 116-150h-76v-280h-80v280h-76l116 150Zm0-150Z" />
+            </svg>
+          </span>
+          <span>Export ทั้งหมด</span>
+        </button>
+      </div>
+    </header>
+
+    <!-- ── TOOLBAR ────────────────────────────────────────────────────────── -->
+    <aside class="app-toolbar" id="app-toolbar" role="toolbar" aria-label="แผงควบคุม">
+      <button class="toolbar-trigger" data-popup="routes" type="button">
+        <span class="toolbar-trigger__icon" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" height="24px"
+            viewBox="0 -960 960 960" width="24px" fill="#5985E1">
+            <path
+              d="M640-560v-126 126ZM174-132q-20 8-37-4.5T120-170v-560q0-13 7.5-23t20.5-15l212-72 240 84 186-72q20-8 37 4.5t17 33.5v337q-15-23-35.5-42T760-528v-204l-120 46v126q-21 0-41 3.5T560-546v-140l-160-56v523l-226 87Zm26-96 120-46v-468l-120 40v474Zm496.5-32q22.5-20 23.5-60 1-34-22.5-57T640-400q-34 0-57 23t-23 57q0 34 23 57t57 23q34 0 56.5-20ZM640-160q-66 0-113-47t-47-113q0-66 47-113t113-47q66 0 113 47t47 113q0 23-5.5 43.5T778-238l102 102-56 56-102-102q-18 11-38.5 16.5T640-160ZM320-742v468-468Z" />
+          </svg></span>
+        <span class="toolbar-trigger__label">เส้นทาง</span>
+        <span class="toolbar-trigger__arrow" aria-hidden="true">›</span>
+      </button>
+      <button class="toolbar-trigger" data-popup="pricing" type="button">
+        <span class="toolbar-trigger__icon" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" height="24px"
+            viewBox="0 -960 960 960" width="24px" fill="#5985E1">
+            <path
+              d="m370-80-16-128q-13-5-24.5-12T307-235l-119 50L78-375l103-78q-1-7-1-13.5v-27q0-6.5 1-13.5L78-585l110-190 119 50q11-8 23-15t24-12l16-128h220l16 128q13 5 24.5 12t22.5 15l119-50 110 190-103 78q1 7 1 13.5v27q0 6.5-2 13.5l103 78-110 190-118-50q-11 8-23 15t-24 12L590-80H370Zm70-80h79l14-106q31-8 57.5-23.5T639-327l99 41 39-68-86-65q5-14 7-29.5t2-31.5q0-16-2-31.5t-7-29.5l86-65-39-68-99 42q-22-23-48.5-38.5T533-694l-13-106h-79l-14 106q-31 8-57.5 23.5T321-633l-99-41-39 68 86 64q-5 15-7 30t-2 32q0 16 2 31t7 30l-86 65 39 68 99-42q22 23 48.5 38.5T427-266l13 106Zm42-180q58 0 99-41t41-99q0-58-41-99t-99-41q-59 0-99.5 41T342-480q0 58 40.5 99t99.5 41Zm-2-140Z" />
+          </svg></span>
+        <span class="toolbar-trigger__label">ปรับราคากลาง</span>
+        <span class="toolbar-trigger__arrow" aria-hidden="true">›</span>
+      </button>
+      <button class="toolbar-trigger" data-popup="bands" type="button">
+        <span class="toolbar-trigger__icon" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" height="24px"
+            viewBox="0 -960 960 960" width="24px" fill="#5985E1">
+            <path
+              d="M160-120v-640q0-33 23.5-56.5T240-840h240q33 0 56.5 23.5T560-760v280h40q33 0 56.5 23.5T680-400v180q0 17 11.5 28.5T720-180q17 0 28.5-11.5T760-220v-288q-9 5-19 6.5t-21 1.5q-42 0-71-29t-29-71q0-32 17.5-57.5T684-694l-84-84 42-42 148 144q15 15 22.5 35t7.5 41v380q0 42-29 71t-71 29q-42 0-71-29t-29-71v-200h-60v300H160Zm80-440h240v-200H240v200Zm480 0q17 0 28.5-11.5T760-600q0-17-11.5-28.5T720-640q-17 0-28.5 11.5T680-600q0 17 11.5 28.5T720-560ZM240-200h240v-280H240v280Zm240 0H240h240Z" />
+          </svg></span>
+        <span class="toolbar-trigger__label">เรทราคาน้ำมัน</span>
+        <span class="toolbar-trigger__arrow" aria-hidden="true">›</span>
+      </button>
+      <button class="toolbar-trigger" data-popup="note" type="button">
+        <span class="toolbar-trigger__icon" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" height="24px"
+            viewBox="0 -960 960 960" width="24px" fill="#5985E1">
+            <path
+              d="M560-80v-123l221-220q9-9 20-13t22-4q12 0 23 4.5t20 13.5l37 37q8 9 12.5 20t4.5 22q0 11-4 22.5T903-300L683-80H560Zm300-263-37-37 37 37ZM620-140h38l121-122-18-19-19-18-122 121v38ZM240-80q-33 0-56.5-23.5T160-160v-640q0-33 23.5-56.5T240-880h320l240 240v120h-80v-80H520v-200H240v640h240v80H240Zm280-400Zm241 199-19-18 37 37-18-19Z" />
+          </svg></span>
+        <span class="toolbar-trigger__label">หมายเหตุ</span>
+        <span class="toolbar-trigger__arrow" aria-hidden="true">›</span>
+      </button>
+      <button class="toolbar-trigger" data-popup="template" type="button">
+        <span class="toolbar-trigger__icon" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" height="24px"
+            viewBox="0 -960 960 960" width="24px" fill="#5985E1">
+            <path
+              d="M280-280h84l240-238-86-86-238 238v86Zm352-266 42-44q6-6 6-14t-6-14l-56-56q-6-6-14-6t-14 6l-44 42 86 86ZM200-120q-33 0-56.5-23.5T120-200v-560q0-33 23.5-56.5T200-840h168q13-36 43.5-58t68.5-22q38 0 68.5 22t43.5 58h168q33 0 56.5 23.5T840-760v560q0 33-23.5 56.5T760-120H200Zm0-80h560v-560H200v560Zm301.5-598.5Q510-807 510-820t-8.5-21.5Q493-850 480-850t-21.5 8.5Q450-833 450-820t8.5 21.5Q467-790 480-790t21.5-8.5ZM200-200v-560 560Z" />
+          </svg></span>
+        <span class="toolbar-trigger__label">ออกแบบภาพ</span>
+        <span class="toolbar-trigger__arrow" aria-hidden="true">›</span>
+      </button>
+    </aside>
+
+    <!-- ── MAIN ───────────────────────────────────────────────────────────── -->
+    <main class="app-main" role="main" aria-label="พื้นที่หลัก">
+
+      <!-- Canvas Preview -->
+      <section class="preview-card" aria-label="Preview ภาพ">
+        <div class="preview-card__header">
+          <div class="preview-card__title">
+            <span class="preview-card__title-icon" aria-hidden="true">
+              <svg viewBox="0 -960 960 960" xmlns="http://www.w3.org/2000/svg" fill="currentColor">
+                <path d="M200-120q-33 0-56.5-23.5T120-200v-560q0-33 23.5-56.5T200-840h560q33 0 56.5 23.5T840-760v560q0 33-23.5 56.5T760-120H200Zm0-80h560v-560H200v560Zm40-80h480L570-480 450-320l-90-120-120 160Zm-40 80v-560 560Z" />
+              </svg>
+            </span>
+            <span class="preview-card__title-text">Preview</span>
+          </div>
+          <div class="preview-header-actions" role="group" aria-label="Preview actions">
+            <button id="btn-export-preview" class="btn btn--primary btn--sm" type="button">
+              <span class="btn__icon" aria-hidden="true">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 -960 960 960" fill="currentColor">
+                  <path d="M160-80v-80h640v80H160Zm320-160L200-600h160v-280h240v280h160L480-240Zm0-130 116-150h-76v-280h-80v280h-76l116 150Zm0-150Z" />
+                </svg>
+              </span>
+              <span>Export PNG</span>
+            </button>
+            <button id="btn-export-all-preview" class="btn btn--success btn--sm" type="button">
+              <span class="btn__icon" aria-hidden="true">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 -960 960 960" fill="currentColor">
+                  <path d="M160-80v-80h640v80H160Zm320-160L200-600h160v-280h240v280h160L480-240Zm0-130 116-150h-76v-280h-80v280h-76l116 150Zm0-150Z" />
+                </svg>
+              </span>
+              <span>Export All</span>
+            </button>
+          </div>
+        </div>
+        <div class="preview-card__body">
+          <div class="preview-card__stage">
+            <canvas id="preview-canvas" role="img" aria-label="ตัวอย่างตารางราคากลาง"></canvas>
+          </div>
+        </div>
+      </section>
+
+      <!-- Price Table (computed values) -->
+      <section class="price-table-card" aria-label="ตารางแสดงผลราคาที่คำณวนแล้ว">
+        <div class="price-table-card__header">
+          <div class="price-table-card__title">
+            ตารางแสดงผลราคาที่คำณวนแล้ว
+          </div>
+        </div>
+        <div style="overflow-x:auto">
+          <table class="data-table" aria-label="ราคาคำนวณ">
+            <thead>
+              <tr>
+                <th scope="col">ช่วงน้ำมัน (บาท/ ลิตร)</th>
+                <th scope="col">ราคารับ</th>
+                <th scope="col">ราคากลาง (หลังคิดตาม %)</th>
+              </tr>
+            </thead>
+            <tbody id="price-preview-table">
+              <tr>
+                <td colspan="3" style="text-align:center;color:var(--color-gray-400);padding:2rem">
+                  เลือกเส้นทางเพื่อดูราคา
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+    </main>
+
+  </div>
+
+  <!-- ════════════════════════════════════════════════════════════════════════
+     POPUP OVERLAY
+     ════════════════════════════════════════════════════════════════════════ -->
+  <div class="popup-overlay" id="popup-overlay" aria-hidden="true"></div>
+
+  <!-- ════════════════════════════════════════════════════════════════════════
+     POPUP: เส้นทาง
+     ════════════════════════════════════════════════════════════════════════ -->
+  <div class="popup" id="popup-routes" role="dialog" aria-modal="true" aria-label="เส้นทาง" aria-hidden="true">
+      <div class="popup__container popup__container--md">
+      <div class="popup__header">
+        <div class="popup__header-main">
+          <span class="popup__header-icon" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="currentColor"><path d="M640-560v-126 126ZM174-132q-20 8-37-4.5T120-170v-560q0-13 7.5-23t20.5-15l212-72 240 84 186-72q20-8 37 4.5t17 33.5v337q-15-23-35.5-42T760-528v-204l-120 46v126q-21 0-41 3.5T560-546v-140l-160-56v523l-226 87Zm26-96 120-46v-468l-120 40v474Zm496.5-32q22.5-20 23.5-60 1-34-22.5-57T640-400q-34 0-57 23t-23 57q0 34 23 57t57 23q34 0 56.5-20ZM640-160q-66 0-113-47t-47-113q0-66 47-113t113-47q66 0 113 47t47 113q0 23-5.5 43.5T778-238l102 102-56 56-102-102q-18 11-38.5 16.5T640-160ZM320-742v468-468Z"/></svg></span>
+          <h2 class="popup__title">เส้นทาง</h2>
+        </div>
+        <button class="popup__close" type="button" aria-label="ปิด">&times;</button>
+      </div>
+      <div class="popup__body">
+        <div class="route-search">
+          <input type="search" id="search-route" placeholder="ค้นหาเส้นทาง..." aria-label="ค้นหาเส้นทาง"
+            autocomplete="off" />
+        </div>
+        <ul id="route-list" role="listbox" aria-label="รายการเส้นทาง"></ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════════════════════════════════════════════
+     POPUP: Pricing Engine
+     ════════════════════════════════════════════════════════════════════════ -->
+  <div class="popup" id="popup-pricing" role="dialog" aria-modal="true" aria-label="Pricing Engine" aria-hidden="true">
+    <div class="popup__container popup__container--lg">
+      <div class="popup__header">
+        <div class="popup__header-main">
+          <span class="popup__header-icon" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="currentColor"><path d="m370-80-16-128q-13-5-24.5-12T307-235l-119 50L78-375l103-78q-1-7-1-13.5v-27q0-6.5 1-13.5L78-585l110-190 119 50q11-8 23-15t24-12l16-128h220l16 128q13 5 24.5 12t22.5 15l119-50 110 190-103 78q1 7 1 13.5v27q0 6.5-2 13.5l103 78-110 190-118-50q-11 8-23 15t-24 12L590-80H370Zm70-80h79l14-106q31-8 57.5-23.5T639-327l99 41 39-68-86-65q5-14 7-29.5t2-31.5q0-16-2-31.5t-7-29.5l86-65-39-68-99 42q-22-23-48.5-38.5T533-694l-13-106h-79l-14 106q-31 8-57.5 23.5T321-633l-99-41-39 68 86 64q-5 15-7 30t-2 32q0 16 2 31t7 30l-86 65 39 68 99-42q22 23 48.5 38.5T427-266l13 106Zm42-180q58 0 99-41t41-99q0-58-41-99t-99-41q-59 0-99.5 41T342-480q0 58 40.5 99t99.5 41Zm-2-140Z"/></svg></span>
+          <h2 class="popup__title">ปรับราคากลาง</h2>
+        </div>
+        <button class="popup__close" type="button" aria-label="ปิด">&times;</button>
+      </div>
+      <div class="popup__body">
+
+        <!-- Default % ราคากลาง -->
+        <div class="form-group">
+          <label class="form-label" for="default-discount">กำหนด % ราคากลาง </label>
+          <div class="form-row">
+            <input type="number" id="default-discount" class="form-control" min="0" max="100" step="0.5" value="13"
+              aria-label="ส่วนลด default (%)" />
+            <button id="apply-default-discount" class="btn btn--primary btn--sm">
+              ใช้ค่าเริ่มต้น
+            </button>
+          </div>
+        </div>
+
+        <div class="divider"></div>
+
+        <!-- Per-route % ราคากลาง table -->
+        <div class="form-group">
+          <div class="route-discount-header">
+            <label class="form-label"></label>
+            <div class="route-discount-actions">
+              <button id="reset-custom-discounts" class="btn btn--ghost btn--xs" title="ลบ custom ทั้งหมด">
+                รีเซ็ตทั้งหมด
+              </button>
+            </div>
+          </div>
+          <div class="route-discount-table-wrap">
+            <table class="route-discount-table" id="route-discount-table">
+              <thead>
+                <tr>
+                  <th>เส้นทาง</th>
+                  <th>ประเภทรถ</th>
+                  <th>% ราคากลาง </th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody id="route-discount-body">
+                <!-- Populated by JS -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="divider"></div>
+
+        <!-- Rounding mode -->
+        <div class="form-group">
+          <label class="form-label" for="rounding-mode">การปัดเศษ</label>
+          <select id="rounding-mode" class="form-control" aria-label="วิธีปัดเศษ">
+            <option value="round">Math.round (ปัดธรรมดา)</option>
+            <option value="floor">Math.floor (ปัดลง)</option>
+            <option value="ceil">Math.ceil (ปัดขึ้น)</option>
+            <option value="none">ไม่ปัด</option>
+          </select>
+        </div>
+
+        <!-- Expression -->
+        <div class="form-group">
+          <label class="form-label" for="price-expression">สูตรคำนวณ</label>
+          <input type="text" id="price-expression" class="form-control form-control--mono"
+            placeholder="basePrice * (1 - avgPricePct / 100)" aria-label="สูตรคำนวณราคา" />
+          <button id="apply-expression" class="btn btn--primary btn--full" style="margin-top:8px">
+            อัพเดทราคากลาง
+          </button>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════════════════════════════════════════════
+     POPUP: เรทราคาน้ำมัน
+     ════════════════════════════════════════════════════════════════════════ -->
+  <div class="popup" id="popup-bands" role="dialog" aria-modal="true" aria-label="เรทราคาน้ำมัน" aria-hidden="true">
+    <div class="popup__container popup__container--sm">
+      <div class="popup__header">
+        <div class="popup__header-main">
+          <span class="popup__header-icon" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="currentColor"><path d="M160-120v-640q0-33 23.5-56.5T240-840h240q33 0 56.5 23.5T560-760v280h40q33 0 56.5 23.5T680-400v180q0 17 11.5 28.5T720-180q17 0 28.5-11.5T760-220v-288q-9 5-19 6.5t-21 1.5q-42 0-71-29t-29-71q0-32 17.5-57.5T684-694l-84-84 42-42 148 144q15 15 22.5 35t7.5 41v380q0 42-29 71t-71 29q-42 0-71-29t-29-71v-200h-60v300H160Zm80-440h240v-200H240v200Zm480 0q17 0 28.5-11.5T760-600q0-17-11.5-28.5T720-640q-17 0-28.5 11.5T680-600q0 17 11.5 28.5T720-560ZM240-200h240v-280H240v280Zm240 0H240h240Z"/></svg></span>
+          <h2 class="popup__title">เรทราคาน้ำมัน</h2>
+        </div>
+        <button class="popup__close" type="button" aria-label="ปิด">&times;</button>
+      </div>
+      <div class="popup__body">
+        <div id="oil-band-editor"></div>
+        <div style="display:flex;gap:8px;margin-top:12px">
+          <button id="add-band" class="btn btn--ghost btn--sm" style="flex:1">
+            + เพิ่มช่วงน้ำมัน
+          </button>
+          <button id="apply-bands" class="btn btn--primary btn--sm" style="flex:2">
+            อัพเดตเรทราคาน้ำมัน
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════════════════════════════════════════════
+     POPUP: หมายเหตุ
+     ════════════════════════════════════════════════════════════════════════ -->
+  <div class="popup" id="popup-note" role="dialog" aria-modal="true" aria-label="หมายเหตุ" aria-hidden="true">
+    <div class="popup__container popup__container--sm">
+      <div class="popup__header">
+        <div class="popup__header-main">
+          <span class="popup__header-icon" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="currentColor"><path d="M560-80v-123l221-220q9-9 20-13t22-4q12 0 23 4.5t20 13.5l37 37q8 9 12.5 20t4.5 22q0 11-4 22.5T903-300L683-80H560Zm300-263-37-37 37 37ZM620-140h38l121-122-18-19-19-18-122 121v38ZM240-80q-33 0-56.5-23.5T160-160v-640q0-33 23.5-56.5T240-880h320l240 240v120h-80v-80H520v-200H240v640h240v80H240Zm280-400Zm241 199-19-18 37 37-18-19Z"/></svg></span>
+          <h2 class="popup__title">หมายเหตุ</h2>
+        </div>
+        <button class="popup__close" type="button" aria-label="ปิด">&times;</button>
+      </div>
+      <div class="popup__body">
+        <div class="form-group">
+          <label class="form-label" for="tmpl-note">ข้อความหมายเหตุ</label>
+          <textarea id="tmpl-note" class="form-control form-control--note" rows="3"
+            placeholder="ระบุข้อความหมายเหตุที่ต้องการแสดง" aria-label="ข้อความหมายเหตุ">ระบุข้อความหมายเหตุ</textarea>
+        </div>
+        <button id="apply-note" class="btn btn--primary btn--full" style="margin-top:12px">
+          อัพเดทหมายเหตุ
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════════════════════════════════════════════
+     POPUP: ออกแบบภาพ
+     ════════════════════════════════════════════════════════════════════════ -->
+  <div class="popup" id="popup-template" role="dialog" aria-modal="true" aria-label="ออกแบบภาพ" aria-hidden="true">
+    <div class="popup__container popup__container--md">
+      <div class="popup__header">
+        <div class="popup__header-main">
+          <span class="popup__header-icon" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="currentColor"><path d="M280-280h84l240-238-86-86-238 238v86Zm352-266 42-44q6-6 6-14t-6-14l-56-56q-6-6-14-6t-14 6l-44 42 86 86ZM200-120q-33 0-56.5-23.5T120-200v-560q0-33 23.5-56.5T200-840h168q13-36 43.5-58t68.5-22q38 0 68.5 22t43.5 58h168q33 0 56.5 23.5T840-760v560q0 33-23.5 56.5T760-120H200Zm0-80h560v-560H200v560Zm301.5-598.5Q510-807 510-820t-8.5-21.5Q493-850 480-850t-21.5 8.5Q450-833 450-820t8.5 21.5Q467-790 480-790t21.5-8.5ZM200-200v-560 560Z"/></svg></span>
+          <h2 class="popup__title">ออกแบบภาพ</h2>
+        </div>
+        <button class="popup__close" type="button" aria-label="ปิด">&times;</button>
+      </div>
+      <div class="popup__body">
+
+        <!-- Oil section title -->
+        <div class="form-group">
+          <label class="form-label" for="tmpl-title">ชื่อหัวคอลัมน์น้ำมัน</label>
+          <input type="text" id="tmpl-title" class="form-control" value="อัตราค่าขนส่ง พขร."
+            aria-label="ชื่อหัวคอลัมน์น้ำมัน" />
+        </div>
+
+        <!-- Canvas size -->
+        <div class="form-group">
+          <label class="form-label">ขนาด Canvas (px)</label>
+          <div class="form-row">
+            <input type="number" id="tmpl-width" class="form-control" value="1270" min="800" max="2560"
+              aria-label="ความกว้าง canvas" />
+            <input type="number" id="tmpl-height" class="form-control" value="720" min="300" max="1200"
+              aria-label="ความสูง canvas" />
+          </div>
+        </div>
+
+        <!-- Price font size -->
+        <div class="form-group">
+          <label class="form-label" for="tmpl-price-size">ขนาดตัวเลขราคา</label>
+          <div class="range-wrapper">
+            <input type="range" id="tmpl-price-size" min="18" max="56" step="1" value="32" aria-label="ขนาดฟอนต์ราคา" />
+            <span class="range-val" id="tmpl-price-size-val">32px</span>
+          </div>
+        </div>
+
+        <!-- Colors -->
+        <div class="form-group">
+          <label class="form-label">สี</label>
+          <div class="color-row">
+            <span class="color-label">Header Background</span>
+            <input type="color" id="tmpl-header-bg" value="#0A2463" aria-label="สี header background" />
+          </div>
+          <div class="color-row">
+            <span class="color-label">Header Text</span>
+            <input type="color" id="tmpl-header-text" value="#FFFFFF" aria-label="สี header text" />
+          </div>
+          <div class="color-row">
+            <span class="color-label">Body Background</span>
+            <input type="color" id="tmpl-body-bg" value="#FFFFFF" aria-label="สี body background" />
+          </div>
+          <div class="color-row">
+            <span class="color-label">Body Text</span>
+            <input type="color" id="tmpl-body-text" value="#0A2463" aria-label="สี body text" />
+          </div>
+          <div class="color-row">
+            <span class="color-label">ราคา</span>
+            <input type="color" id="tmpl-price-color" value="#0A2463" aria-label="สีราคา" />
+          </div>
+          <div class="color-row">
+            <span class="color-label">Accent</span>
+            <input type="color" id="tmpl-accent" value="#3E6ED6" aria-label="สี accent" />
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast notification -->
+  <div id="toast" class="toast" role="alert" aria-live="assertive" aria-atomic="true"></div>
+
+  <!-- Scripts — load order: DataStore → PricingEngine → ImageRenderer → App -->
+  <script src="scripts/data-store.js?v=20260617-2"></script>
+  <script src="scripts/pricing-engine.js?v=20260617-2"></script>
+  <script src="scripts/image-renderer.js?v=20260617-2"></script>
+  <script src="scripts/app.js?v=20260617-2"></script>
+
+  <!-- Popup management & extra wiring -->
+  <script>
+    // ── Popup Management ───────────────────────────────────────────────────
+    const popupOverlay = document.getElementById('popup-overlay');
+    const allPopups = document.querySelectorAll('.popup');
+    const allTriggers = document.querySelectorAll('.toolbar-trigger');
+    let activePopupId = null;
+
+    function openPopup(popupId) {
+      // Close any currently open popup first
+      if (activePopupId) closePopup();
+
+      const popup = document.getElementById('popup-' + popupId);
+      if (!popup) return;
+
+      // Show overlay and popup
+      popupOverlay.classList.add('popup-overlay--visible');
+      popup.classList.add('popup--visible');
+
+      // Activate trigger button & set aria-expanded
+      allTriggers.forEach(t => {
+        const isActive = t.dataset.popup === popupId;
+        t.classList.toggle('toolbar-trigger--active', isActive);
+        t.setAttribute('aria-expanded', isActive);
+      });
+
+      activePopupId = popupId;
+      document.body.style.overflow = 'hidden';
+
+      // Focus first focusable element inside popup
+      requestAnimationFrame(() => {
+        const closeBtn = popup.querySelector('.popup__close');
+        if (closeBtn) closeBtn.focus();
+      });
+    }
+
+    function closePopup() {
+      if (!activePopupId) return;
+
+      // Remember which trigger was active so we can return focus
+      const triggerBtn = document.querySelector(`.toolbar-trigger[data-popup="${activePopupId}"]`);
+
+      const popup = document.getElementById('popup-' + activePopupId);
+      if (popup) {
+        popup.classList.remove('popup--visible');
+      }
+
+      popupOverlay.classList.remove('popup-overlay--visible');
+
+      // Deactivate all triggers & reset aria-expanded
+      allTriggers.forEach(t => {
+        t.classList.remove('toolbar-trigger--active');
+        t.setAttribute('aria-expanded', 'false');
+      });
+
+      activePopupId = null;
+      document.body.style.overflow = '';
+
+      // Return focus to the trigger button
+      if (triggerBtn) triggerBtn.focus();
+    }
+
+    // ── Focus Trap ───────────────────────────────────────────────────────
+    function getFocusableElements(container) {
+      return container.querySelectorAll(
+        'input:not([disabled]):not([type="hidden"]), textarea:not([disabled]), select:not([disabled]), button:not([disabled]):not(.popup__close), [tabindex]:not([tabindex="-1"])'
+      );
+    }
+
+    function handleFocusTrap(e) {
+      if (!activePopupId || e.key !== 'Tab') return;
+
+      const popup = document.getElementById('popup-' + activePopupId);
+      if (!popup) return;
+
+      // Also include the close button in focusable elements
+      const focusable = popup.querySelectorAll(
+        'input:not([disabled]):not([type="hidden"]), textarea:not([disabled]), select:not([disabled]), button:not([disabled]), [tabindex]:not([tabindex="-1"])'
+      );
+      if (focusable.length === 0) return;
+
+      const firstEl = focusable[0];
+      const lastEl = focusable[focusable.length - 1];
+
+      if (e.shiftKey) {
+        if (document.activeElement === firstEl) {
+          e.preventDefault();
+          lastEl.focus();
+        }
+      } else {
+        if (document.activeElement === lastEl) {
+          e.preventDefault();
+          firstEl.focus();
+        }
+      }
+    }
+
+    // ── Event Bindings ──────────────────────────────────────────────────
+    // Initialize all triggers with aria-expanded="false"
+    allTriggers.forEach(t => t.setAttribute('aria-expanded', 'false'));
+
+    // Trigger button clicks
+    allTriggers.forEach(trigger => {
+      trigger.addEventListener('click', () => {
+        const popupId = trigger.dataset.popup;
+        if (activePopupId === popupId) {
+          closePopup();
+        } else {
+          openPopup(popupId);
+        }
+      });
+    });
+
+    // Close button clicks inside popups
+    document.querySelectorAll('.popup__close').forEach(btn => {
+      btn.addEventListener('click', closePopup);
+    });
+
+    // Overlay click to close
+    popupOverlay.addEventListener('click', closePopup);
+
+    // ESC key to close
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && activePopupId) {
+        closePopup();
+      }
+    });
+
+    // Focus trap
+    document.addEventListener('keydown', handleFocusTrap);
+
+    // Wire export buttons in preview area
+    document.addEventListener('DOMContentLoaded', () => {
+      const btnExportPreview = document.getElementById('btn-export-preview');
+      const btnExportAllPreview = document.getElementById('btn-export-all-preview');
+      if (btnExportPreview) btnExportPreview.addEventListener('click', () => document.getElementById('btn-export').click());
+      if (btnExportAllPreview) btnExportAllPreview.addEventListener('click', () => document.getElementById('btn-export-all').click());
+    });
+  </script>
+
+</body>
+
+</html>

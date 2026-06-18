@@ -1,0 +1,657 @@
+/**
+ * app.js — Application Controller
+ *
+ * เชื่อม 3 ชั้นหลักเข้าด้วยกัน:
+ *   DataStore → PricingEngine → ImageRenderer
+ *
+ * จัดการ UI events ทั้งหมด:
+ *   - Route selector, % ราคากลาง settings, per-route table
+ *   - Oil band label editor
+ *   - Template color/size controls
+ *   - Preview + Export PNG
+ *   - Batch export (all routes)
+ */
+
+(() => {
+  "use strict";
+
+  // ── State ─────────────────────────────────────────────────────────────────
+  let state = {
+    selectedRouteId: null,
+    routes: [],
+    oilBands: [],
+    previewDirty: true,
+  };
+
+  // ── DOM refs ──────────────────────────────────────────────────────────────
+  const $ = (id) => document.getElementById(id);
+  const canvas = $("preview-canvas");
+
+  // ── Init ──────────────────────────────────────────────────────────────────
+  function init() {
+    applyAppBranding();
+    state.routes = DataStore.getRoutes();
+    state.oilBands = DataStore.getOilBands();
+    PricingEngine.syncOverridesToBandCount(state.oilBands.length);
+
+    populateRouteList();
+    populateOilBandEditor();
+    bindPricingControls();
+    bindTemplateControls();
+    bindExportControls();
+    bindRouteList();
+    bindPreviewQualityWatchers();
+
+    // Select first route
+    const firstRoute = state.routes[0];
+    if (firstRoute) selectRoute(firstRoute.id);
+  }
+
+  function applyAppBranding() {
+    const appConfig = typeof DataStore.getAppConfig === "function"
+      ? DataStore.getAppConfig()
+      : {};
+    const titleText = appConfig.productName || "Pricing Template Studio";
+    const subtitleText = appConfig.productSubtitle || "ระบบสร้างภาพตารางราคากลางขนส่ง";
+    const pageTitle = appConfig.pageTitle || `${titleText} — ตารางราคากลางขนส่ง`;
+    const pageDescription = appConfig.pageDescription || subtitleText;
+
+    const titleEl = document.querySelector(".app-header__title");
+    const subtitleEl = document.querySelector(".app-header__subtitle");
+    const descriptionEl = document.querySelector('meta[name="description"]');
+
+    if (titleEl) titleEl.textContent = titleText;
+    if (subtitleEl) subtitleEl.textContent = subtitleText;
+    document.title = pageTitle;
+    if (descriptionEl) descriptionEl.setAttribute("content", pageDescription);
+  }
+
+  // ── Route List ────────────────────────────────────────────────────────────
+  function populateRouteList() {
+    const list = $("route-list");
+    list.innerHTML = "";
+    state.routes.forEach((route) => {
+      const li = document.createElement("li");
+      li.dataset.routeId = route.id;
+      li.innerHTML = `
+        <span class="route-name">${route.name || route.id}</span>
+        <span class="route-meta">${route.distance} km · ${route.vehicleType}</span>
+      `;
+      list.appendChild(li);
+    });
+  }
+
+  function bindRouteList() {
+    $("route-list").addEventListener("click", (e) => {
+      const li = e.target.closest("li[data-route-id]");
+      if (!li) return;
+      selectRoute(li.dataset.routeId);
+    });
+
+    $("search-route").addEventListener("input", (e) => {
+      const q = e.target.value.toLowerCase();
+      document.querySelectorAll("#route-list li").forEach((li) => {
+        const name = li.dataset.routeId.toLowerCase();
+        li.style.display = name.includes(q) ? "" : "none";
+      });
+    });
+  }
+
+  function selectRoute(routeId) {
+    state.selectedRouteId = routeId;
+
+    // Update active state in list
+    document.querySelectorAll("#route-list li").forEach((li) => {
+      li.classList.toggle("active", li.dataset.routeId === routeId);
+    });
+
+    // Update active state in table
+    document.querySelectorAll(".route-discount-row").forEach((row) => {
+      row.classList.toggle("active", row.dataset.routeId === routeId);
+    });
+
+    schedulePreview();
+  }
+
+  // ── Pricing Controls ──────────────────────────────────────────────────────
+  function bindPricingControls() {
+    // Default % ราคากลาง
+    $("default-discount").value = PricingEngine.getConfig().defaultAvgPct;
+
+    $("apply-default-discount").addEventListener("click", () => {
+      const v = parseFloat($("default-discount").value);
+      if (isNaN(v) || v < 0 || v > 100) {
+        return showToast("กรุณาระบุค่า 0-100", "error");
+      }
+      try {
+        PricingEngine.setDefaultAvgPct(v);
+        PricingEngine.clearAllRouteOverrides();
+        PricingEngine.syncOverridesToBandCount(state.oilBands.length);
+        populateRouteDiscountTable();
+        showToast(`✓ อัพเดต % ราคากลางเป็น ${v}% ให้ทุกเส้นทางแล้ว`, "success");
+        schedulePreview();
+      } catch (_) {}
+    });
+
+    // Reset all custom % ราคากลาง
+    $("reset-custom-discounts").addEventListener("click", () => {
+      PricingEngine.clearAllRouteOverrides();
+      populateRouteDiscountTable();
+      showToast("✓ ลบ custom % ราคากลาง ทั้งหมดแล้ว", "success");
+      schedulePreview();
+    });
+
+    // Rounding mode
+    $("rounding-mode").addEventListener("change", (e) => {
+      try {
+        PricingEngine.setRoundingMode(e.target.value);
+        schedulePreview();
+      } catch (_) {}
+    });
+
+    // Expression
+    $("apply-expression").addEventListener("click", () => {
+      const expr = $("price-expression").value.trim();
+      try {
+        PricingEngine.setExpression(expr);
+        showToast("✓ Expression อัพเดตแล้ว", "success");
+        schedulePreview();
+      } catch (err) {
+        showToast("✗ Expression ผิดพลาด: " + err.message, "error");
+      }
+    });
+    $("price-expression").value = PricingEngine.getConfig().expression;
+
+    // Build per-route % ราคากลาง table
+    populateRouteDiscountTable();
+  }
+
+  // ── Route Discount Table ──────────────────────────────────────────────────
+  function populateRouteDiscountTable() {
+    const tbody = $("route-discount-body");
+    if (!tbody) return;
+    const cfg = PricingEngine.getConfig();
+    const defaultPct = cfg.defaultAvgPct;
+
+    tbody.innerHTML = state.routes.map((route) => {
+      const override = cfg.routeOverrides[route.id];
+      const isCustom = override !== undefined;
+      const pct = isCustom ? override : defaultPct;
+      const activeClass = route.id === state.selectedRouteId ? " active" : "";
+      const bandCount = state.oilBands.length;
+      const expandedPct = isCustom && Array.isArray(override)
+        ? PricingEngine.resolveRouteAvgPcts(route.id, bandCount)
+        : null;
+
+      let pctStr = "";
+      if (Array.isArray(pct)) {
+        pctStr = (expandedPct || pct).join(" / ");
+      } else {
+        pctStr = pct;
+      }
+
+      return `
+        <tr class="route-discount-row${activeClass}" data-route-id="${route.id}">
+          <td class="rd-id">${route.id}</td>
+          <td class="rd-type">${route.vehicleType}</td>
+          <td class="rd-input">
+            <input type="text" class="rd-pct-input" data-route-id="${route.id}"
+              value="${pctStr}"
+              placeholder="13 หรือ 13 / 30"
+              title="ระบุ 1 ค่าเพื่อใช้ทุกช่วง, 2 ค่าเพื่อใช้ค่าทั่วไป/ช่วงสุดท้าย, หรือ ${bandCount} ค่าให้ครบทุกช่วง"
+              aria-label="ส่วนลด ${route.id} (%)" />
+          </td>
+          <td class="rd-badge">
+            ${isCustom
+              ? '<span class="badge--custom" title="ส่วนลดเฉพาะเส้นทางนี้">C</span>'
+              : '<span class="badge--default" title="ใช้ค่า default">D</span>'
+            }
+          </td>
+        </tr>`;
+    }).join("");
+
+    // Bind inline editing
+    tbody.querySelectorAll(".rd-pct-input").forEach((input) => {
+      input.addEventListener("change", (e) => {
+        const routeId = e.target.dataset.routeId;
+        const text = e.target.value.trim();
+        const parts = text.split(/[\/,]+/).map(p => parseFloat(p.trim())).filter(n => !isNaN(n));
+        const bandCount = state.oilBands.length;
+
+        if (parts.length === 0) {
+          showToast("กรุณาระบุค่า 0-100", "error");
+          populateRouteDiscountTable();
+          return;
+        }
+
+        let overrideValue;
+        if (parts.length === 1) {
+          overrideValue = parts[0];
+        } else if (parts.length === 2 && bandCount > 1) {
+          overrideValue = Array(bandCount).fill(parts[0]);
+          overrideValue[bandCount - 1] = parts[1];
+        } else if (parts.length === bandCount) {
+          overrideValue = parts;
+        } else {
+          showToast(`ระบุได้ 1 ค่า, 2 ค่า, หรือ ${bandCount} ค่า`, "error");
+          populateRouteDiscountTable();
+          return;
+        }
+
+        try {
+          if (Array.isArray(overrideValue)) {
+            overrideValue.forEach(v => {
+              if (v < 0 || v > 100) throw new RangeError("% ราคากลาง ต้องอยู่ระหว่าง 0-100");
+            });
+          } else {
+            if (overrideValue < 0 || overrideValue > 100) throw new RangeError("% ราคากลาง ต้องอยู่ระหว่าง 0-100");
+          }
+
+          PricingEngine.setRouteOverride(routeId, overrideValue);
+          populateRouteDiscountTable();
+          const refreshedConfig = PricingEngine.getConfig();
+          const savedOverride = refreshedConfig.routeOverrides[routeId];
+          const displayVal = Array.isArray(overrideValue) ? [...new Set(overrideValue)].join("/") : overrideValue;
+          const isUsingDefault = savedOverride === undefined;
+          showToast(
+            isUsingDefault
+              ? `✓ ${routeId} กลับไปใช้ค่า default ${refreshedConfig.defaultAvgPct}% แล้ว`
+              : `✓ ${routeId} → ${displayVal}%`,
+            "success"
+          );
+          schedulePreview();
+        } catch (err) {
+          showToast("✗ " + err.message, "error");
+          populateRouteDiscountTable();
+        }
+      });
+
+      // Select route when clicking input
+      input.addEventListener("focus", (e) => {
+        const routeId = e.target.dataset.routeId;
+        selectRoute(routeId);
+      });
+    });
+
+    // Click row to select route
+    tbody.querySelectorAll(".route-discount-row").forEach((row) => {
+      row.addEventListener("click", (e) => {
+        if (e.target.tagName === "INPUT") return;
+        selectRoute(row.dataset.routeId);
+        populateRouteDiscountTable();
+      });
+    });
+  }
+
+  // ── Oil Band Editor ───────────────────────────────────────────────────────
+  function getOilBandOptionsForRow(currentBandId) {
+    const sourceBands = typeof DataStore.getSourceOilBands === "function"
+      ? DataStore.getSourceOilBands()
+      : [];
+    const selectedIds = new Set(
+      typeof DataStore.getSelectedBandIds === "function"
+        ? DataStore.getSelectedBandIds()
+        : state.oilBands.map((band) => band.id)
+    );
+
+    return sourceBands.filter((band) => band.id === currentBandId || !selectedIds.has(band.id));
+  }
+
+  function getPreferredBandToAdd() {
+    const sourceBands = typeof DataStore.getSourceOilBands === "function"
+      ? DataStore.getSourceOilBands()
+      : [];
+    const selectedIds = typeof DataStore.getSelectedBandIds === "function"
+      ? DataStore.getSelectedBandIds()
+      : state.oilBands.map((band) => band.id);
+    const selectedIdSet = new Set(selectedIds);
+    const selectedIndexes = selectedIds
+      .map((bandId) => sourceBands.findIndex((band) => band.id === bandId))
+      .filter((index) => index >= 0)
+      .sort((a, b) => a - b);
+    const availableBands = sourceBands
+      .map((band, index) => ({ band, sourceIndex: index }))
+      .filter(({ band }) => !selectedIdSet.has(band.id));
+
+    if (availableBands.length === 0) return null;
+    if (selectedIndexes.length === 0) {
+      return { band: availableBands[0].band, insertIndex: 0 };
+    }
+
+    const rankedBands = availableBands.map((item) => {
+      const distance = Math.min(...selectedIndexes.map((index) => Math.abs(item.sourceIndex - index)));
+      const insertIndex = selectedIndexes.filter((index) => index < item.sourceIndex).length;
+      const isInsideCurrentWindow =
+        item.sourceIndex > selectedIndexes[0] &&
+        item.sourceIndex < selectedIndexes[selectedIndexes.length - 1];
+
+      return {
+        ...item,
+        distance,
+        insertIndex,
+        isInsideCurrentWindow,
+      };
+    });
+
+    rankedBands.sort((a, b) => {
+      if (a.distance !== b.distance) return a.distance - b.distance;
+      if (a.isInsideCurrentWindow !== b.isInsideCurrentWindow) {
+        return a.isInsideCurrentWindow ? -1 : 1;
+      }
+      return a.sourceIndex - b.sourceIndex;
+    });
+
+    const bestMatch = rankedBands[0];
+    return {
+      band: bestMatch.band,
+      insertIndex: bestMatch.insertIndex,
+    };
+  }
+
+  function populateOilBandEditor() {
+    const container = $("oil-band-editor");
+    container.innerHTML = "";
+
+    state.oilBands.forEach((band, i) => {
+      const datalistId = `oil-band-options-${band.id}`;
+      const optionsMarkup = getOilBandOptionsForRow(band.id)
+        .map((option) => `<option value="${option.label}"></option>`)
+        .join("");
+      const row = document.createElement("div");
+      row.className = "oil-band-row";
+      row.dataset.bandId = band.id;
+      row.innerHTML = `
+        <label>ช่วงที่ ${i + 1}</label>
+        <input type="text" class="band-label-input" data-band-id="${band.id}"
+          value="${band.label}" placeholder="เลือกหรือระบุช่วงน้ำมัน" list="${datalistId}" />
+        <datalist id="${datalistId}">
+          ${optionsMarkup}
+        </datalist>
+        <button class="btn btn--ghost btn--xs band-remove-btn" data-band-id="${band.id}"
+          title="ลบช่วงนี้" aria-label="ลบ ${band.label}">&times;</button>
+      `;
+      container.appendChild(row);
+    });
+
+    container.querySelectorAll(".band-label-input").forEach((input) => {
+      input.addEventListener("change", (e) => {
+        const bandId = e.target.dataset.bandId;
+        const newLabel = e.target.value.trim();
+        if (newLabel) {
+          DataStore.updateOilBand(bandId, { label: newLabel });
+          state.oilBands = DataStore.getOilBands();
+          showToast("✓ อัพเดต label ช่วงน้ำมันแล้ว", "success");
+          schedulePreview();
+        }
+      });
+    });
+
+    container.querySelectorAll(".band-remove-btn").forEach((btn) => {
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        const bandId = e.target.dataset.bandId;
+        if (state.oilBands.length <= 1) {
+          return showToast("ต้องมีอย่างน้อย 1 ช่วง", "error");
+        }
+        const removeIndex = state.oilBands.findIndex((band) => band.id === bandId);
+        DataStore.removeOilBand(bandId);
+        PricingEngine.syncOverridesAfterBandRemove(removeIndex, state.oilBands.length - 1);
+        state.routes = DataStore.getRoutes();
+        state.oilBands = DataStore.getOilBands();
+        populateOilBandEditor();
+        populateRouteDiscountTable();
+        showToast("✓ ลบช่วงน้ำมันแล้ว", "success");
+        schedulePreview();
+      });
+    });
+
+    $("apply-bands").onclick = () => {
+      const inputs = container.querySelectorAll(".band-label-input");
+      inputs.forEach((input) => {
+        const bandId = input.dataset.bandId;
+        const newLabel = input.value.trim();
+        if (newLabel) {
+          DataStore.updateOilBand(bandId, { label: newLabel });
+        }
+      });
+      state.oilBands = DataStore.getOilBands();
+      showToast("✓ อัพเดตช่วงน้ำมันแล้ว", "success");
+      schedulePreview();
+    };
+
+    $("add-band").onclick = () => {
+      const preferredBand = getPreferredBandToAdd();
+      const insertIndex = preferredBand ? preferredBand.insertIndex : state.oilBands.length;
+      let newLabel = preferredBand ? preferredBand.band.label : "42.01 - 43.00";
+
+      if (!preferredBand) {
+        const lastBand = state.oilBands[state.oilBands.length - 1];
+        if (lastBand) {
+          const m = lastBand.label.match(/(\d+\.?\d*)\s*-\s*(\d+\.?\d*)/);
+          if (m) {
+            const lastMax = parseFloat(m[2]);
+            newLabel = (lastMax + 0.01).toFixed(2) + " - " + (lastMax + 1).toFixed(2);
+          }
+        }
+      }
+
+      DataStore.addOilBand(newLabel, insertIndex);
+      PricingEngine.syncOverridesAfterBandInsert(insertIndex, state.oilBands.length + 1);
+      state.routes = DataStore.getRoutes();
+      state.oilBands = DataStore.getOilBands();
+      populateOilBandEditor();
+      populateRouteDiscountTable();
+      showToast("✓ เพิ่มช่วงน้ำมันใหม่แล้ว", "success");
+      schedulePreview();
+    };
+  }
+
+  // ── Template Controls ─────────────────────────────────────────────────────
+  function bindTemplateControls() {
+    // Color pickers
+    const colorMap = {
+      "tmpl-header-bg": "headerBg",
+      "tmpl-header-text": "headerText",
+      "tmpl-body-bg": "bodyBg",
+      "tmpl-body-text": "bodyText",
+      "tmpl-price-color": "priceColor",
+      "tmpl-accent": "accentColor",
+    };
+    Object.entries(colorMap).forEach(([elId, tmplKey]) => {
+      const el = $(elId);
+      if (!el) return;
+      el.value = ImageRenderer.getTemplate()[tmplKey];
+      el.addEventListener("input", () => {
+        ImageRenderer.setTemplate({ [tmplKey]: el.value });
+        schedulePreview();
+      });
+    });
+
+    // Title
+    $("tmpl-title").addEventListener("input", (e) => {
+      ImageRenderer.setTemplate({ oilSectionTitle: e.target.value });
+      schedulePreview();
+    });
+    $("tmpl-title").value = ImageRenderer.getTemplate().oilSectionTitle;
+
+    // Note
+    $("tmpl-note").addEventListener("input", (e) => {
+      ImageRenderer.setTemplate({
+        referenceDateLabel: "หมายเหตุ",
+        referenceDate: e.target.value.trim() || "ระบุข้อความหมายเหตุ",
+      });
+      schedulePreview();
+    });
+    $("tmpl-note").value = ImageRenderer.getTemplate().referenceDate;
+
+    // Apply Note button
+    $("apply-note").addEventListener("click", () => {
+      const note = $("tmpl-note").value.trim();
+      ImageRenderer.setTemplate({
+        referenceDateLabel: "หมายเหตุ",
+        referenceDate: note || "ระบุข้อความหมายเหตุ",
+      });
+      showToast("✓ อัพเดทหมายเหตุแล้ว", "success");
+      schedulePreview();
+    });
+
+    // Canvas size
+    $("tmpl-width").addEventListener("change", (e) => {
+      ImageRenderer.setTemplate({ width: parseInt(e.target.value) || 1270 });
+      schedulePreview();
+    });
+    $("tmpl-height").addEventListener("change", (e) => {
+      ImageRenderer.setTemplate({ height: parseInt(e.target.value) || 720 });
+      schedulePreview();
+    });
+    $("tmpl-width").value = ImageRenderer.getTemplate().width;
+    $("tmpl-height").value = ImageRenderer.getTemplate().height;
+
+    // Price font size
+    $("tmpl-price-size").addEventListener("input", (e) => {
+      const v = parseInt(e.target.value);
+      $("tmpl-price-size-val").textContent = v + "px";
+      ImageRenderer.setTemplate({ priceFontSize: v });
+      schedulePreview();
+    });
+    $("tmpl-price-size-val").textContent = ImageRenderer.getTemplate().priceFontSize + "px";
+    $("tmpl-price-size").value = ImageRenderer.getTemplate().priceFontSize;
+  }
+
+  // ── Export Controls ───────────────────────────────────────────────────────
+  function bindExportControls() {
+    $("btn-export").addEventListener("click", async () => {
+      if (!state.selectedRouteId) return showToast("กรุณาเลือก Route ก่อน", "error");
+      const routeData = buildRouteData(state.selectedRouteId);
+      ImageRenderer.render(canvas, routeData, state.oilBands);
+      await ImageRenderer.exportPNG(canvas, `${state.selectedRouteId}.png`);
+      showToast(`✓ Export ${state.selectedRouteId}.png`, "success");
+    });
+
+    $("btn-export-all").addEventListener("click", async () => {
+      const exportCanvas = document.createElement("canvas");
+      let exportedCount = 0;
+      showToast("⏳ กำลัง export ทั้งหมด...", "info");
+      for (const route of state.routes) {
+        const routeData = buildRouteData(route.id);
+        ImageRenderer.render(exportCanvas, routeData, state.oilBands);
+        await ImageRenderer.exportPNG(exportCanvas, `${route.id}.png`);
+        exportedCount += 1;
+        await new Promise((r) => setTimeout(r, 260));
+      }
+      showToast(`Export complete: ${exportedCount} routes`, "success");
+    });
+
+    $("btn-refresh").addEventListener("click", () => {
+      renderPreview();
+    });
+  }
+
+  // ── Preview ───────────────────────────────────────────────────────────────
+  let previewTimer = null;
+  function schedulePreview() {
+    clearTimeout(previewTimer);
+    previewTimer = setTimeout(renderPreview, 120);
+  }
+
+  function bindPreviewQualityWatchers() {
+    if (document.fonts && document.fonts.ready) {
+      document.fonts.ready.then(() => schedulePreview()).catch(() => {});
+    }
+
+    window.addEventListener("load", () => schedulePreview(), { once: true });
+    window.addEventListener("resize", () => schedulePreview());
+
+    const stage = canvas.closest(".preview-card__stage") || canvas;
+    if ("ResizeObserver" in window) {
+      let lastWidth = 0;
+      const observer = new ResizeObserver((entries) => {
+        const width = entries[0]?.contentRect?.width || 0;
+        if (Math.abs(width - lastWidth) < 1) return;
+        lastWidth = width;
+        schedulePreview();
+      });
+      observer.observe(stage);
+    }
+  }
+
+  function buildRouteData(routeId) {
+    const route = DataStore.getRouteById(routeId);
+    if (!route) return null;
+    const computed = PricingEngine.computeForRoute(route);
+    return { ...route, ...computed };
+  }
+
+  function escapeHtml(value) {
+    return String(value).replace(/[&<>"']/g, (char) => {
+      switch (char) {
+        case "&": return "&amp;";
+        case "<": return "&lt;";
+        case ">": return "&gt;";
+        case '"': return "&quot;";
+        case "'": return "&#39;";
+        default: return char;
+      }
+    });
+  }
+
+  function renderPreview() {
+    if (!state.selectedRouteId) return;
+    const routeData = buildRouteData(state.selectedRouteId);
+    if (!routeData) return;
+
+    ImageRenderer.render(canvas, routeData, state.oilBands, {
+      pixelRatio: 2,
+      maxPixelRatio: 6,
+    });
+    updatePriceTable(routeData);
+  }
+
+  function updatePriceTable(routeData) {
+    const tbody = $("price-preview-table");
+    if (!tbody) return;
+    const unitLabel = escapeHtml(ImageRenderer.getTemplate().unitLabel || "บาท");
+    const bp = routeData.basePrices || [];
+    const cp = routeData.computedPrices || [];
+    tbody.innerHTML = state.oilBands
+      .map((band, i) => {
+        const bandLabel = escapeHtml(band.label);
+        const baseVal = i < bp.length ? bp[i] : 0;
+        const compVal = i < cp.length ? cp[i] : 0;
+        const basePrice = baseVal.toLocaleString("th-TH", {
+          minimumFractionDigits: 2,
+          maximumFractionDigits: 2,
+        });
+        const computedPrice = compVal.toLocaleString("th-TH");
+        return `
+      <tr>
+        <td>
+          <span class="data-table__text" title="${bandLabel}">${bandLabel}</span>
+        </td>
+        <td>
+          <span class="data-table__num" title="${basePrice}">${basePrice}</span>
+        </td>
+        <td>
+          <span class="data-table__price-group" title="${computedPrice} ${unitLabel}">
+            <strong class="data-table__value">${computedPrice}</strong>
+            <span class="data-table__unit">${unitLabel}</span>
+          </span>
+        </td>
+      </tr>
+    `;
+      })
+      .join("");
+  }
+
+  // ── Toast ─────────────────────────────────────────────────────────────────
+  function showToast(msg, type = "info") {
+    const toast = $("toast");
+    toast.textContent = msg;
+    toast.className = `toast toast--${type} toast--show`;
+    clearTimeout(toast._timer);
+    toast._timer = setTimeout(() => toast.classList.remove("toast--show"), 3000);
+  }
+
+  // ── Boot ──────────────────────────────────────────────────────────────────
+  document.addEventListener("DOMContentLoaded", init);
+})();
