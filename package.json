@@ -1,0 +1,7 @@
+{
+  "name": "pricing-template-studio",
+  "private": true,
+  "scripts": {
+    "build": "node scripts/build-static.mjs"
+  }
+}
