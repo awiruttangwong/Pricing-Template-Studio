@@ -22,6 +22,9 @@ const DataStore = (() => {
   };
 
   const DEFAULT_CLIENT_ID = "jt";
+  const externalClientDatasets = typeof globalThis !== "undefined" && globalThis.CLIENT_DATASETS_EXT
+    ? globalThis.CLIENT_DATASETS_EXT
+    : {};
 
   const CLIENT_DATASETS = {
     jt: {
@@ -145,6 +148,7 @@ const DataStore = (() => {
         },
       ],
     },
+    ...externalClientDatasets,
   };
 
   let activeClientId = DEFAULT_CLIENT_ID;
@@ -167,6 +171,56 @@ const DataStore = (() => {
     };
   }
 
+  function validateRoute(route, index) {
+    if (!route || typeof route !== "object") {
+      throw new Error(`Route at index ${index} is not a valid object`);
+    }
+    if (!route.id || typeof route.id !== "string") {
+      throw new Error(`Route at index ${index} missing required field: id`);
+    }
+    if (!route.name && !route.sourceName) {
+      console.warn(`DataStore: Route "${route.id}" has no name or sourceName`);
+    }
+    if (!Array.isArray(route.allBasePrices) || route.allBasePrices.length === 0) {
+      throw new Error(`Route "${route.id}" missing required field: allBasePrices (must be non-empty array)`);
+    }
+    if (typeof route.vehicleType !== "string") {
+      console.warn(`DataStore: Route "${route.id}" missing vehicleType`);
+    }
+  }
+
+  function validateClientDataset(dataset, clientId) {
+    if (!dataset || typeof dataset !== "object") {
+      throw new Error(`Client dataset "${clientId}" is not a valid object`);
+    }
+    if (!dataset.id || typeof dataset.id !== "string") {
+      throw new Error(`Client dataset "${clientId}" missing required field: id`);
+    }
+    if (!dataset.name || typeof dataset.name !== "string") {
+      throw new Error(`Client dataset "${clientId}" missing required field: name`);
+    }
+    if (!Array.isArray(dataset.sourceOilBands) || dataset.sourceOilBands.length === 0) {
+      throw new Error(`Client dataset "${clientId}" missing required field: sourceOilBands (must be non-empty array)`);
+    }
+    if (!Array.isArray(dataset.routes) || dataset.routes.length === 0) {
+      throw new Error(`Client dataset "${clientId}" missing required field: routes (must be non-empty array)`);
+    }
+    if (!Array.isArray(dataset.defaultSelectedBandIds) || dataset.defaultSelectedBandIds.length === 0) {
+      console.warn(`DataStore: Client "${clientId}" missing defaultSelectedBandIds, will use all bands`);
+    }
+  }
+
+  function validateRouteBandLengths(dataset, clientId) {
+    const bandCount = dataset.sourceOilBands.length;
+    dataset.routes.forEach((route, i) => {
+      if (Array.isArray(route.allBasePrices) && route.allBasePrices.length !== bandCount) {
+        console.warn(
+          `DataStore: Client "${clientId}" route "${route.id}" has ${route.allBasePrices.length} basePrices but ${bandCount} sourceOilBands. Prices may be truncated or padded.`
+        );
+      }
+    });
+  }
+
   function normalizeBandLabel(label) {
     return `${label ?? ""}`.replace(/\s+/g, " ").replace(/\s*-\s*/g, " - ").trim();
   }
@@ -174,26 +228,48 @@ const DataStore = (() => {
   function parseBandLabel(label) {
     const normalized = normalizeBandLabel(label);
     const match = normalized.match(/(\d+\.?\d*)\s*-\s*(\d+\.?\d*)/);
-    if (!match) return { min: 0, max: 0 };
-    return {
-      min: parseFloat(match[1]),
-      max: parseFloat(match[2]),
-    };
+    if (match) {
+      return {
+        min: parseFloat(match[1]),
+        max: parseFloat(match[2]),
+      };
+    }
+
+    const singleValueMatch = normalized.match(/^(\d+\.?\d*)$/);
+    if (singleValueMatch) {
+      const min = parseFloat(singleValueMatch[1]);
+      return {
+        min,
+        max: Number((min + 0.99).toFixed(2)),
+      };
+    }
+
+    return { min: 0, max: 0 };
   }
 
   function createClientState(dataset) {
+    dataset.routes.forEach((route, i) => validateRoute(route, i));
+    validateRouteBandLengths(dataset, dataset.id);
     return {
       meta: cloneClientMeta(dataset),
       sourceOilBands: dataset.sourceOilBands.map(cloneBand),
       routes: dataset.routes.map(cloneRoute),
-      selectedBandIds: [...dataset.defaultSelectedBandIds],
-      defaultSelectedBandIds: [...dataset.defaultSelectedBandIds],
+      selectedBandIds: [...(dataset.defaultSelectedBandIds || dataset.sourceOilBands.map((b) => b.id))],
+      defaultSelectedBandIds: [...(dataset.defaultSelectedBandIds || dataset.sourceOilBands.map((b) => b.id))],
       bandIdCounter: dataset.sourceOilBands.length,
     };
   }
 
   const clientStates = Object.fromEntries(
-    Object.entries(CLIENT_DATASETS).map(([clientId, dataset]) => [clientId, createClientState(dataset)])
+    Object.entries(CLIENT_DATASETS).map(([clientId, dataset]) => {
+      try {
+        validateClientDataset(dataset, clientId);
+        return [clientId, createClientState(dataset)];
+      } catch (err) {
+        console.error(`DataStore: Failed to initialize client "${clientId}":`, err.message);
+        return null;
+      }
+    }).filter(Boolean)
   );
 
   function getClientState(clientId = activeClientId) {
@@ -339,7 +415,22 @@ const DataStore = (() => {
     setActiveClient: (clientId) => {
       requireClientState(clientId);
       activeClientId = clientId;
+      PricingEngine.clearAllRouteOverrides();
       return getActiveClientMeta();
+    },
+    registerClient: (dataset) => {
+      if (!dataset || !dataset.id) {
+        throw new Error("registerClient: dataset must have an id");
+      }
+      validateClientDataset(dataset, dataset.id);
+      clientStates[dataset.id] = createClientState(dataset);
+      return cloneClientMeta(clientStates[dataset.id].meta);
+    },
+    unregisterClient: (clientId) => {
+      if (clientId === activeClientId) {
+        throw new Error("Cannot unregister the active client");
+      }
+      delete clientStates[clientId];
     },
 
     // Source dataset — full payload ของ active client

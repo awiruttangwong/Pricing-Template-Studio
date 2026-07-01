@@ -97,11 +97,20 @@ const PricingEngine = (() => {
   function computePrice(basePrice, avgPricePct) {
     try {
       // Safe eval: only allow math expressions with named vars
+      // Whitelist: numbers, operators, parentheses, decimal points, variable names
+      const allowedPattern = /^[a-zA-Z0-9_+\-*/().%,\s]+$/;
+      if (!allowedPattern.test(config.expression)) {
+        throw new Error("Expression contains disallowed characters");
+      }
       const raw = new Function(
         "basePrice",
         "avgPricePct",
         `return ${config.expression};`
       )(basePrice, avgPricePct);
+      if (!Number.isFinite(raw)) {
+        console.warn("PricingEngine: expression returned non-finite value, using fallback");
+        return applyRounding(basePrice * (1 - avgPricePct / 100));
+      }
       return applyRounding(raw);
     } catch (e) {
       console.error("PricingEngine: expression error", e);
@@ -212,6 +221,10 @@ const PricingEngine = (() => {
 
     setExpression: (expr) => {
       // Validate expression compiles (don't execute with real data yet)
+      const allowedPattern = /^[a-zA-Z0-9_+\-*/().%,\s]+$/;
+      if (!allowedPattern.test(expr)) {
+        throw new SyntaxError("Expression contains disallowed characters. Only numbers, operators, parentheses, and variable names are allowed.");
+      }
       try {
         new Function("basePrice", "avgPricePct", `return ${expr};`);
         config.expression = expr;

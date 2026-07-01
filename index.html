@@ -24,7 +24,7 @@
     rel="stylesheet" />
 
   <!-- Styles -->
-  <link rel="stylesheet" href="assets/css/styles.css?v=20260617-2" />
+  <link rel="stylesheet" href="assets/css/styles.css?v=20260701-1" />
 </head>
 
 <body>
@@ -36,40 +36,51 @@
 
     <!-- ── HEADER ─────────────────────────────────────────────────────────── -->
     <header class="app-header" role="banner">
-      <div class="app-header__brand">
-        <div class="app-header__icon" aria-hidden="true">
-          <img src="icons/2k.png" alt="" />
+      <div class="app-header__top">
+        <div class="app-header__brand">
+          <div class="app-header__icon" aria-hidden="true">
+            <img src="icons/2k.png" alt="" />
+          </div>
+          <div>
+            <div class="app-header__title">Pricing Template Studio</div>
+            <div class="app-header__subtitle">ระบบสร้างภาพตารางราคากลางขนส่ง</div>
+          </div>
         </div>
-        <div>
-          <div class="app-header__title">Pricing Template Studio</div>
-          <div class="app-header__subtitle">ระบบสร้างภาพตารางราคากลางขนส่ง</div>
+        <div class="app-header__actions">
+          <button id="btn-refresh" class="btn btn--ghost btn--sm" title="Refresh preview" aria-label="รีเฟรช preview">
+            ↻ Refresh
+          </button>
+          <button id="btn-export" class="btn btn--ghost btn--sm" aria-label="Export PNG route ที่เลือก">
+            <span class="btn__icon" aria-hidden="true">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 -960 960 960" fill="currentColor">
+                <path d="M160-80v-80h640v80H160Zm320-160L200-600h160v-280h240v280h160L480-240Zm0-130 116-150h-76v-280h-80v280h-76l116 150Zm0-150Z" />
+              </svg>
+            </span>
+            <span>Export PNG</span>
+          </button>
+          <button id="btn-export-all" class="btn btn--ghost btn--sm" aria-label="Export PNG ทุก route">
+            <span class="btn__icon" aria-hidden="true">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 -960 960 960" fill="currentColor">
+                <path d="M160-80v-80h640v80H160Zm320-160L200-600h160v-280h240v280h160L480-240Zm0-130 116-150h-76v-280h-80v280h-76l116 150Zm0-150Z" />
+              </svg>
+            </span>
+            <span>Export ทั้งหมด</span>
+          </button>
         </div>
-      </div>
-      <div class="app-header__actions">
-        <button id="btn-refresh" class="btn btn--ghost btn--sm" title="Refresh preview" aria-label="รีเฟรช preview">
-          ↻ Refresh
-        </button>
-        <button id="btn-export" class="btn btn--ghost btn--sm" aria-label="Export PNG route ที่เลือก">
-          <span class="btn__icon" aria-hidden="true">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 -960 960 960" fill="currentColor">
-              <path d="M160-80v-80h640v80H160Zm320-160L200-600h160v-280h240v280h160L480-240Zm0-130 116-150h-76v-280h-80v280h-76l116 150Zm0-150Z" />
-            </svg>
-          </span>
-          <span>Export PNG</span>
-        </button>
-        <button id="btn-export-all" class="btn btn--ghost btn--sm" aria-label="Export PNG ทุก route">
-          <span class="btn__icon" aria-hidden="true">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 -960 960 960" fill="currentColor">
-              <path d="M160-80v-80h640v80H160Zm320-160L200-600h160v-280h240v280h160L480-240Zm0-130 116-150h-76v-280h-80v280h-76l116 150Zm0-150Z" />
-            </svg>
-          </span>
-          <span>Export ทั้งหมด</span>
-        </button>
       </div>
     </header>
 
     <!-- ── TOOLBAR ────────────────────────────────────────────────────────── -->
     <aside class="app-toolbar" id="app-toolbar" role="toolbar" aria-label="แผงควบคุม">
+      <button class="toolbar-trigger" data-popup="client-data" type="button">
+        <span class="toolbar-trigger__icon" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" height="24px"
+            viewBox="0 -960 960 960" width="24px" fill="#5985E1">
+            <path
+              d="M234-276q51-39 114-61.5T480-360q69 0 132 22.5T726-276q35-41 54.5-93T800-480q0-133-93.5-226.5T480-800q-133 0-226.5 93.5T160-480q0 59 19.5 111t54.5 93Zm146.5-204.5Q340-521 340-580t40.5-99.5Q421-720 480-720t99.5 40.5Q620-639 620-580t-40.5 99.5Q539-440 480-440t-99.5-40.5ZM480-80q-83 0-156-31.5T197-197q-54-54-85.5-127T80-480q0-83 31.5-156T197-763q54-54 127-85.5T480-880q83 0 156 31.5T763-763q54 54 85.5 127T880-480q0 83-31.5 156T763-197q-54 54-127 85.5T480-80Zm100-95.5q47-15.5 86-44.5-39-29-86-44.5T480-280q-53 0-100 15.5T294-220q39 29 86 44.5T480-160q53 0 100-15.5ZM523-537q17-17 17-43t-17-43q-17-17-43-17t-43 17q-17 17-17 43t17 43q17 17 43 17t43-17Zm-43-43Zm0 360Z" />
+          </svg></span>
+        <span class="toolbar-trigger__label">ชุดข้อมูลลูกค้า</span>
+        <span class="toolbar-trigger__arrow" aria-hidden="true">›</span>
+      </button>
       <button class="toolbar-trigger" data-popup="routes" type="button">
         <span class="toolbar-trigger__icon" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" height="24px"
             viewBox="0 -960 960 960" width="24px" fill="#5985E1">
@@ -164,7 +175,7 @@
             ตารางแสดงผลราคาที่คำณวนแล้ว
           </div>
         </div>
-        <div style="overflow-x:auto">
+        <div class="table-scroll">
           <table class="data-table" aria-label="ราคาคำนวณ">
             <thead>
               <tr>
@@ -175,7 +186,7 @@
             </thead>
             <tbody id="price-preview-table">
               <tr>
-                <td colspan="3" style="text-align:center;color:var(--color-gray-400);padding:2rem">
+                <td colspan="3" class="data-table__empty">
                   เลือกเส้นทางเพื่อดูราคา
                 </td>
               </tr>
@@ -288,7 +299,7 @@
           <label class="form-label" for="price-expression">สูตรคำนวณ</label>
           <input type="text" id="price-expression" class="form-control form-control--mono"
             placeholder="basePrice * (1 - avgPricePct / 100)" aria-label="สูตรคำนวณราคา" />
-          <button id="apply-expression" class="btn btn--primary btn--full" style="margin-top:8px">
+          <button id="apply-expression" class="btn btn--primary btn--full form-action-gap-sm">
             อัพเดทราคากลาง
           </button>
         </div>
@@ -311,11 +322,11 @@
       </div>
       <div class="popup__body">
         <div id="oil-band-editor"></div>
-        <div style="display:flex;gap:8px;margin-top:12px">
-          <button id="add-band" class="btn btn--ghost btn--sm" style="flex:1">
+        <div class="popup-actions">
+          <button id="add-band" class="btn btn--ghost btn--sm popup-actions__secondary">
             + เพิ่มช่วงน้ำมัน
           </button>
-          <button id="apply-bands" class="btn btn--primary btn--sm" style="flex:2">
+          <button id="apply-bands" class="btn btn--primary btn--sm popup-actions__primary">
             อัพเดตเรทราคาน้ำมัน
           </button>
         </div>
@@ -341,9 +352,50 @@
           <textarea id="tmpl-note" class="form-control form-control--note" rows="3"
             placeholder="ระบุข้อความหมายเหตุที่ต้องการแสดง" aria-label="ข้อความหมายเหตุ">ระบุข้อความหมายเหตุ</textarea>
         </div>
-        <button id="apply-note" class="btn btn--primary btn--full" style="margin-top:12px">
+        <button id="apply-note" class="btn btn--primary btn--full form-action-gap-md">
           อัพเดทหมายเหตุ
         </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════════════════════════════════════════════
+     POPUP: ชุดข้อมูลลูกค้า
+     ════════════════════════════════════════════════════════════════════════ -->
+  <div class="popup" id="popup-client-data" role="dialog" aria-modal="true" aria-label="ชุดข้อมูลลูกค้า" aria-hidden="true">
+    <div class="popup__container popup__container--sm">
+      <div class="popup__header">
+        <div class="popup__header-main">
+          <span class="popup__header-icon" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="currentColor"><path d="M234-276q51-39 114-61.5T480-360q69 0 132 22.5T726-276q35-41 54.5-93T800-480q0-133-93.5-226.5T480-800q-133 0-226.5 93.5T160-480q0 59 19.5 111t54.5 93Zm146.5-204.5Q340-521 340-580t40.5-99.5Q421-720 480-720t99.5 40.5Q620-639 620-580t-40.5 99.5Q539-440 480-440t-99.5-40.5ZM480-80q-83 0-156-31.5T197-197q-54-54-85.5-127T80-480q0-83 31.5-156T197-763q54-54 127-85.5T480-880q83 0 156 31.5T763-763q54 54 85.5 127T880-480q0 83-31.5 156T763-197q-54 54-127 85.5T480-80Zm100-95.5q47-15.5 86-44.5-39-29-86-44.5T480-280q-53 0-100 15.5T294-220q39 29 86 44.5T480-160q53 0 100-15.5ZM523-537q17-17 17-43t-17-43q-17-17-43-17t-43 17q-17 17-17 43t17 43q17 17 43 17t43-17Zm-43-43Zm0 360Z"/></svg></span>
+          <h2 class="popup__title">ชุดข้อมูลลูกค้า</h2>
+        </div>
+        <button class="popup__close" type="button" aria-label="ปิด">&times;</button>
+      </div>
+      <div class="popup__body">
+        <div class="form-group">
+          <label class="form-label" for="client-select">เลือกชุดข้อมูลลูกค้า</label>
+          <select id="client-select" class="form-control" aria-label="เลือกชุดข้อมูลลูกค้า"></select>
+        </div>
+        <div class="client-data-info" id="client-data-info" style="display: none;">
+          <div class="divider"></div>
+          <div class="form-group">
+            <label class="form-label">ข้อมูลลูกค้า</label>
+            <div class="client-info-card">
+              <div class="client-info-row">
+                <span class="client-info-label">ชื่อลูกค้า:</span>
+                <span class="client-info-value" id="client-name">-</span>
+              </div>
+              <div class="client-info-row">
+                <span class="client-info-label">จำนวนเส้นทาง:</span>
+                <span class="client-info-value" id="client-route-count">-</span>
+              </div>
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">เส้นทาง:</label>
+            <div class="client-routes-list" id="client-routes-list"></div>
+          </div>
+        </div>
       </div>
     </div>
   </div>
@@ -426,150 +478,12 @@
   <div id="toast" class="toast" role="alert" aria-live="assertive" aria-atomic="true"></div>
 
   <!-- Scripts — load order: DataStore → PricingEngine → ImageRenderer → App -->
-  <script src="scripts/data-store.js?v=20260617-2"></script>
+  <script src="scripts/client-datasets.js?v=20260701-1"></script>
+  <script src="scripts/data-store.js?v=20260701-1"></script>
   <script src="scripts/pricing-engine.js?v=20260617-2"></script>
-  <script src="scripts/image-renderer.js?v=20260617-2"></script>
-  <script src="scripts/app.js?v=20260617-2"></script>
-
-  <!-- Popup management & extra wiring -->
-  <script>
-    // ── Popup Management ───────────────────────────────────────────────────
-    const popupOverlay = document.getElementById('popup-overlay');
-    const allPopups = document.querySelectorAll('.popup');
-    const allTriggers = document.querySelectorAll('.toolbar-trigger');
-    let activePopupId = null;
-
-    function openPopup(popupId) {
-      // Close any currently open popup first
-      if (activePopupId) closePopup();
-
-      const popup = document.getElementById('popup-' + popupId);
-      if (!popup) return;
-
-      // Show overlay and popup
-      popupOverlay.classList.add('popup-overlay--visible');
-      popup.classList.add('popup--visible');
-
-      // Activate trigger button & set aria-expanded
-      allTriggers.forEach(t => {
-        const isActive = t.dataset.popup === popupId;
-        t.classList.toggle('toolbar-trigger--active', isActive);
-        t.setAttribute('aria-expanded', isActive);
-      });
-
-      activePopupId = popupId;
-      document.body.style.overflow = 'hidden';
-
-      // Focus first focusable element inside popup
-      requestAnimationFrame(() => {
-        const closeBtn = popup.querySelector('.popup__close');
-        if (closeBtn) closeBtn.focus();
-      });
-    }
-
-    function closePopup() {
-      if (!activePopupId) return;
-
-      // Remember which trigger was active so we can return focus
-      const triggerBtn = document.querySelector(`.toolbar-trigger[data-popup="${activePopupId}"]`);
-
-      const popup = document.getElementById('popup-' + activePopupId);
-      if (popup) {
-        popup.classList.remove('popup--visible');
-      }
-
-      popupOverlay.classList.remove('popup-overlay--visible');
-
-      // Deactivate all triggers & reset aria-expanded
-      allTriggers.forEach(t => {
-        t.classList.remove('toolbar-trigger--active');
-        t.setAttribute('aria-expanded', 'false');
-      });
-
-      activePopupId = null;
-      document.body.style.overflow = '';
-
-      // Return focus to the trigger button
-      if (triggerBtn) triggerBtn.focus();
-    }
-
-    // ── Focus Trap ───────────────────────────────────────────────────────
-    function getFocusableElements(container) {
-      return container.querySelectorAll(
-        'input:not([disabled]):not([type="hidden"]), textarea:not([disabled]), select:not([disabled]), button:not([disabled]):not(.popup__close), [tabindex]:not([tabindex="-1"])'
-      );
-    }
-
-    function handleFocusTrap(e) {
-      if (!activePopupId || e.key !== 'Tab') return;
-
-      const popup = document.getElementById('popup-' + activePopupId);
-      if (!popup) return;
-
-      // Also include the close button in focusable elements
-      const focusable = popup.querySelectorAll(
-        'input:not([disabled]):not([type="hidden"]), textarea:not([disabled]), select:not([disabled]), button:not([disabled]), [tabindex]:not([tabindex="-1"])'
-      );
-      if (focusable.length === 0) return;
-
-      const firstEl = focusable[0];
-      const lastEl = focusable[focusable.length - 1];
-
-      if (e.shiftKey) {
-        if (document.activeElement === firstEl) {
-          e.preventDefault();
-          lastEl.focus();
-        }
-      } else {
-        if (document.activeElement === lastEl) {
-          e.preventDefault();
-          firstEl.focus();
-        }
-      }
-    }
-
-    // ── Event Bindings ──────────────────────────────────────────────────
-    // Initialize all triggers with aria-expanded="false"
-    allTriggers.forEach(t => t.setAttribute('aria-expanded', 'false'));
-
-    // Trigger button clicks
-    allTriggers.forEach(trigger => {
-      trigger.addEventListener('click', () => {
-        const popupId = trigger.dataset.popup;
-        if (activePopupId === popupId) {
-          closePopup();
-        } else {
-          openPopup(popupId);
-        }
-      });
-    });
-
-    // Close button clicks inside popups
-    document.querySelectorAll('.popup__close').forEach(btn => {
-      btn.addEventListener('click', closePopup);
-    });
-
-    // Overlay click to close
-    popupOverlay.addEventListener('click', closePopup);
-
-    // ESC key to close
-    document.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape' && activePopupId) {
-        closePopup();
-      }
-    });
-
-    // Focus trap
-    document.addEventListener('keydown', handleFocusTrap);
-
-    // Wire export buttons in preview area
-    document.addEventListener('DOMContentLoaded', () => {
-      const btnExportPreview = document.getElementById('btn-export-preview');
-      const btnExportAllPreview = document.getElementById('btn-export-all-preview');
-      if (btnExportPreview) btnExportPreview.addEventListener('click', () => document.getElementById('btn-export').click());
-      if (btnExportAllPreview) btnExportAllPreview.addEventListener('click', () => document.getElementById('btn-export-all').click());
-    });
-  </script>
+  <script src="scripts/image-renderer.js?v=20260701-1"></script>
+  <script src="scripts/ui-shell.js?v=20260701-1"></script>
+  <script src="scripts/app.js?v=20260701-2"></script>
 
 </body>
 

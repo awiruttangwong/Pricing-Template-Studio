@@ -79,6 +79,12 @@ const ImageRenderer = (() => {
     return Number(n).toLocaleString("th-TH");
   }
 
+  function fmtDistance(distance) {
+    const numericDistance = Number(distance);
+    if (!Number.isFinite(numericDistance) || numericDistance <= 0) return "ไม่ระบุ";
+    return `${numericDistance.toLocaleString("th-TH")} Km`;
+  }
+
   function getBandDisplayLabel(label) {
     return `${label ?? ""}`.trim();
   }
@@ -329,7 +335,24 @@ const ImageRenderer = (() => {
   }
 
   function render(canvas, routeData, oilBands, options = {}) {
+    if (!canvas) {
+      console.error("ImageRenderer: canvas element not found");
+      return;
+    }
+    if (!routeData) {
+      console.error("ImageRenderer: routeData is null or undefined");
+      return;
+    }
+    if (!oilBands || oilBands.length === 0) {
+      console.error("ImageRenderer: oilBands is empty");
+      return;
+    }
+
     const ctx = canvas.getContext("2d");
+    if (!ctx) {
+      console.error("ImageRenderer: cannot get 2d context");
+      return;
+    }
     const W = tmpl.width;
     const H = tmpl.height;
 
@@ -490,7 +513,7 @@ const ImageRenderer = (() => {
     });
     const summaryItems = [
       { icon: ROUTE_ICON_PATH, label: tmpl.routeLabel, value: routeData.name || routeData.id },
-      { icon: ROAD_ICON_PATH, label: tmpl.distanceLabel, value: `${Number(routeData.distance).toLocaleString("th-TH")} Km` },
+      { icon: ROAD_ICON_PATH, label: tmpl.distanceLabel, value: fmtDistance(routeData.distance) },
       { icon: TRUCK_ICON_PATH, label: tmpl.vehicleLabel, value: routeData.vehicleType },
     ];
     summaryItems.forEach((item, i) => {

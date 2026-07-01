@@ -27,13 +27,65 @@
   const $ = (id) => document.getElementById(id);
   const canvas = $("preview-canvas");
 
-  // ── Init ──────────────────────────────────────────────────────────────────
-  function init() {
-    applyAppBranding();
+  function getCurrentClient() {
+    return typeof DataStore.getActiveClient === "function"
+      ? DataStore.getActiveClient()
+      : null;
+  }
+
+  function getRouteDistanceLabel(route) {
+    const numericDistance = Number(route?.distance);
+    if (!Number.isFinite(numericDistance) || numericDistance <= 0) {
+      return "ระยะทางไม่ระบุ";
+    }
+    return `${numericDistance.toLocaleString("th-TH")} km`;
+  }
+
+  function getActiveRoute() {
+    return state.routes.find((route) => route.id === state.selectedRouteId) || null;
+  }
+
+  function syncWorkspaceSummary() {
+    const activeClient = getCurrentClient();
+
+    const clientNameEl = $("client-name");
+    const clientRouteCountEl = $("client-route-count");
+    const clientRoutesListEl = $("client-routes-list");
+    const clientDataInfoEl = $("client-data-info");
+
+    if (activeClient) {
+      if (clientNameEl) clientNameEl.textContent = activeClient.name;
+      if (clientRouteCountEl) clientRouteCountEl.textContent = String(state.routes.length);
+      if (clientRoutesListEl) {
+        clientRoutesListEl.innerHTML = state.routes.map((route) => {
+          const distance = route.distance ? `${route.distance} km` : "ไม่ระบุ";
+          return `
+            <div class="client-route-item">
+              <span class="client-route-item__name">${route.name || route.id}</span>
+              <span class="client-route-item__meta">${route.vehicleType} · ${distance}</span>
+            </div>
+          `;
+        }).join("");
+      }
+      if (clientDataInfoEl) clientDataInfoEl.style.display = "block";
+    } else {
+      if (clientDataInfoEl) clientDataInfoEl.style.display = "none";
+    }
+  }
+
+  function refreshStateFromStore() {
     state.routes = DataStore.getRoutes();
     state.oilBands = DataStore.getOilBands();
     PricingEngine.syncOverridesToBandCount(state.oilBands.length);
+    syncWorkspaceSummary();
+  }
 
+  // ── Init ──────────────────────────────────────────────────────────────────
+  function init() {
+    applyAppBranding();
+    refreshStateFromStore();
+
+    populateClientSelector();
     populateRouteList();
     populateOilBandEditor();
     bindPricingControls();
@@ -51,6 +103,7 @@
     const appConfig = typeof DataStore.getAppConfig === "function"
       ? DataStore.getAppConfig()
       : {};
+    const activeClient = getCurrentClient();
     const titleText = appConfig.productName || "Pricing Template Studio";
     const subtitleText = appConfig.productSubtitle || "ระบบสร้างภาพตารางราคากลางขนส่ง";
     const pageTitle = appConfig.pageTitle || `${titleText} — ตารางราคากลางขนส่ง`;
@@ -64,34 +117,75 @@
     if (subtitleEl) subtitleEl.textContent = subtitleText;
     document.title = pageTitle;
     if (descriptionEl) descriptionEl.setAttribute("content", pageDescription);
+    if (activeClient) syncWorkspaceSummary();
+  }
+
+  function populateClientSelector() {
+    const select = $("client-select");
+    if (!select || typeof DataStore.getClients !== "function") return;
+
+    const clients = DataStore.getClients();
+    select.innerHTML = clients
+      .map((client) => `<option value="${client.id}">${client.name}</option>`)
+      .join("");
+    select.value = typeof DataStore.getActiveClientId === "function"
+      ? DataStore.getActiveClientId()
+      : clients[0]?.id || "";
+
+    select.addEventListener("change", (e) => {
+      const nextClientId = e.target.value;
+      if (!nextClientId) return;
+      DataStore.setActiveClient(nextClientId);
+      refreshStateFromStore();
+      applyAppBranding();
+      populateRouteList();
+      populateOilBandEditor();
+      populateRouteDiscountTable();
+
+      const firstRoute = state.routes[0];
+      state.selectedRouteId = firstRoute ? firstRoute.id : null;
+      if (firstRoute) {
+        selectRoute(firstRoute.id);
+      } else {
+        syncWorkspaceSummary();
+        renderPreview();
+      }
+
+      showToast(`✓ เปลี่ยนชุดข้อมูลเป็น ${getCurrentClient()?.name || nextClientId}`, "success");
+    });
   }
 
   // ── Route List ────────────────────────────────────────────────────────────
   function populateRouteList() {
     const list = $("route-list");
+    if (!list) return;
     list.innerHTML = "";
     state.routes.forEach((route) => {
       const li = document.createElement("li");
       li.dataset.routeId = route.id;
       li.innerHTML = `
         <span class="route-name">${route.name || route.id}</span>
-        <span class="route-meta">${route.distance} km · ${route.vehicleType}</span>
+        <span class="route-meta">${getRouteDistanceLabel(route)} · ${route.vehicleType}</span>
       `;
       list.appendChild(li);
     });
   }
 
   function bindRouteList() {
-    $("route-list").addEventListener("click", (e) => {
+    const routeList = $("route-list");
+    const searchInput = $("search-route");
+    if (!routeList || !searchInput) return;
+
+    routeList.addEventListener("click", (e) => {
       const li = e.target.closest("li[data-route-id]");
       if (!li) return;
       selectRoute(li.dataset.routeId);
     });
 
-    $("search-route").addEventListener("input", (e) => {
+    searchInput.addEventListener("input", (e) => {
       const q = e.target.value.toLowerCase();
       document.querySelectorAll("#route-list li").forEach((li) => {
-        const name = li.dataset.routeId.toLowerCase();
+        const name = li.textContent.toLowerCase();
         li.style.display = name.includes(q) ? "" : "none";
       });
     });
@@ -110,6 +204,7 @@
       row.classList.toggle("active", row.dataset.routeId === routeId);
     });
 
+    syncWorkspaceSummary();
     schedulePreview();
   }
 
@@ -350,6 +445,7 @@
 
   function populateOilBandEditor() {
     const container = $("oil-band-editor");
+    if (!container) return;
     container.innerHTML = "";
 
     state.oilBands.forEach((band, i) => {
@@ -380,6 +476,7 @@
         if (newLabel) {
           DataStore.updateOilBand(bandId, { label: newLabel });
           state.oilBands = DataStore.getOilBands();
+          syncWorkspaceSummary();
           showToast("✓ อัพเดต label ช่วงน้ำมันแล้ว", "success");
           schedulePreview();
         }
@@ -396,8 +493,7 @@
         const removeIndex = state.oilBands.findIndex((band) => band.id === bandId);
         DataStore.removeOilBand(bandId);
         PricingEngine.syncOverridesAfterBandRemove(removeIndex, state.oilBands.length - 1);
-        state.routes = DataStore.getRoutes();
-        state.oilBands = DataStore.getOilBands();
+        refreshStateFromStore();
         populateOilBandEditor();
         populateRouteDiscountTable();
         showToast("✓ ลบช่วงน้ำมันแล้ว", "success");
@@ -415,6 +511,7 @@
         }
       });
       state.oilBands = DataStore.getOilBands();
+      syncWorkspaceSummary();
       showToast("✓ อัพเดตช่วงน้ำมันแล้ว", "success");
       schedulePreview();
     };
@@ -437,8 +534,7 @@
 
       DataStore.addOilBand(newLabel, insertIndex);
       PricingEngine.syncOverridesAfterBandInsert(insertIndex, state.oilBands.length + 1);
-      state.routes = DataStore.getRoutes();
-      state.oilBands = DataStore.getOilBands();
+      refreshStateFromStore();
       populateOilBandEditor();
       populateRouteDiscountTable();
       showToast("✓ เพิ่มช่วงน้ำมันใหม่แล้ว", "success");
@@ -519,27 +615,46 @@
   }
 
   // ── Export Controls ───────────────────────────────────────────────────────
+  let exportInProgress = false;
   function bindExportControls() {
     $("btn-export").addEventListener("click", async () => {
+      if (exportInProgress) return;
       if (!state.selectedRouteId) return showToast("กรุณาเลือก Route ก่อน", "error");
-      const routeData = buildRouteData(state.selectedRouteId);
-      ImageRenderer.render(canvas, routeData, state.oilBands);
-      await ImageRenderer.exportPNG(canvas, `${state.selectedRouteId}.png`);
-      showToast(`✓ Export ${state.selectedRouteId}.png`, "success");
+      exportInProgress = true;
+      try {
+        const routeData = buildRouteData(state.selectedRouteId);
+        ImageRenderer.render(canvas, routeData, state.oilBands);
+        await ImageRenderer.exportPNG(canvas, `${state.selectedRouteId}.png`);
+        showToast(`✓ Export ${state.selectedRouteId}.png`, "success");
+      } catch (err) {
+        console.error("Export error:", err);
+        showToast("✗ Export ล้มเหลว: " + err.message, "error");
+      } finally {
+        exportInProgress = false;
+      }
     });
 
     $("btn-export-all").addEventListener("click", async () => {
+      if (exportInProgress) return;
+      exportInProgress = true;
       const exportCanvas = document.createElement("canvas");
       let exportedCount = 0;
-      showToast("⏳ กำลัง export ทั้งหมด...", "info");
-      for (const route of state.routes) {
-        const routeData = buildRouteData(route.id);
-        ImageRenderer.render(exportCanvas, routeData, state.oilBands);
-        await ImageRenderer.exportPNG(exportCanvas, `${route.id}.png`);
-        exportedCount += 1;
-        await new Promise((r) => setTimeout(r, 260));
+      try {
+        showToast("⏳ กำลัง export ทั้งหมด...", "info");
+        for (const route of state.routes) {
+          const routeData = buildRouteData(route.id);
+          ImageRenderer.render(exportCanvas, routeData, state.oilBands);
+          await ImageRenderer.exportPNG(exportCanvas, `${route.id}.png`);
+          exportedCount += 1;
+          await new Promise((r) => setTimeout(r, 260));
+        }
+        showToast(`Export complete: ${exportedCount} routes`, "success");
+      } catch (err) {
+        console.error("Export all error:", err);
+        showToast(`✗ Export ล้มเหลว: ${exportedCount}/${state.routes.length} routes`, "error");
+      } finally {
+        exportInProgress = false;
       }
-      showToast(`Export complete: ${exportedCount} routes`, "success");
     });
 
     $("btn-refresh").addEventListener("click", () => {
@@ -596,20 +711,41 @@
   }
 
   function renderPreview() {
-    if (!state.selectedRouteId) return;
+    if (!canvas) return;
+    if (!state.selectedRouteId) {
+      updatePriceTable(null);
+      return;
+    }
     const routeData = buildRouteData(state.selectedRouteId);
-    if (!routeData) return;
+    if (!routeData) {
+      updatePriceTable(null);
+      return;
+    }
 
-    ImageRenderer.render(canvas, routeData, state.oilBands, {
-      pixelRatio: 2,
-      maxPixelRatio: 6,
-    });
-    updatePriceTable(routeData);
+    try {
+      ImageRenderer.render(canvas, routeData, state.oilBands, {
+        pixelRatio: 2,
+        maxPixelRatio: 6,
+      });
+      updatePriceTable(routeData);
+    } catch (err) {
+      console.error("Preview render error:", err);
+    }
   }
 
   function updatePriceTable(routeData) {
     const tbody = $("price-preview-table");
     if (!tbody) return;
+    if (!routeData) {
+      tbody.innerHTML = `
+        <tr>
+          <td colspan="3" class="data-table__empty">
+            เลือกเส้นทางเพื่อดูราคา
+          </td>
+        </tr>
+      `;
+      return;
+    }
     const unitLabel = escapeHtml(ImageRenderer.getTemplate().unitLabel || "บาท");
     const bp = routeData.basePrices || [];
     const cp = routeData.computedPrices || [];
