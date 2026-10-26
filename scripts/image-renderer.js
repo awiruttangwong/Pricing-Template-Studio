@@ -40,7 +40,7 @@ const ImageRenderer = (() => {
     subHeaderFontSize: 15,
     leftHeaderFontSize: 14,
     labelFontSize: 17,
-    priceFontSize: 36,
+    priceFontSize: 38,
     unitFontSize: 15,
     metaFontSize: 17,
     padding: 32,
@@ -334,6 +334,17 @@ const ImageRenderer = (() => {
     return Math.min(Math.max(snappedRatio, requestedRatio, 1), maxRatio);
   }
 
+  const MAX_TABLE_COLS = 8;
+  const MIN_TABLE_COLS = 3;
+  const MIN_BAND_CELL_W = 130;
+  // ระยะจากขอบบน card ถึงตารางราคา (hero 26+156, summary 26+138, gap 30)
+  const TABLE_OFFSET_Y = 376;
+
+  // ขนาดฟอนต์เดียวทั้งชุด = ขนาดที่ข้อความยาวที่สุดยังใส่ช่องได้
+  function getUniformFontSize(ctx, texts, maxWidth, maxFontSize, minFontSize, weight) {
+    return Math.min(...texts.map((text) => getFittedFontSize(ctx, text, maxWidth, maxFontSize, minFontSize, weight)));
+  }
+
   function render(canvas, routeData, oilBands, options = {}) {
     if (!canvas) {
       console.error("ImageRenderer: canvas element not found");
@@ -353,8 +364,23 @@ const ImageRenderer = (() => {
       console.error("ImageRenderer: cannot get 2d context");
       return;
     }
+    // ช่วงน้ำมันเกิน MAX_TABLE_COLS จะขึ้นแถวใหม่ และขยายความสูงภาพให้พอดี
+    // เพื่อไม่ให้ตัวเลขราคาถูกบีบจนล้นช่อง
+    const bandCount = oilBands.length;
+    const tableInnerW = tmpl.width - tmpl.padding * 2 - 64;
+    const maxCols = Math.max(
+      MIN_TABLE_COLS,
+      Math.min(MAX_TABLE_COLS, Math.floor(tableInnerW / MIN_BAND_CELL_W))
+    );
+    const tableRows = Math.ceil(bandCount / maxCols);
+    const tableCols = Math.ceil(bandCount / tableRows);
+    const tableTitleH = 52;
+    const bandLabelH = 48;
+    const rowH = tableRows > 1 ? 124 : 160;
+    const tableH = tableTitleH + tableRows * (bandLabelH + rowH);
+    const requiredH = tmpl.padding * 2 + TABLE_OFFSET_Y + tableH + 20;
     const W = tmpl.width;
-    const H = tmpl.height;
+    const H = Math.max(tmpl.height, requiredH);
 
     // Keep the backing store aligned with the real displayed size so CSS scaling
     // does not soften text/icons in the preview.
@@ -445,7 +471,9 @@ const ImageRenderer = (() => {
     const noteTextMinFont = hasLongNote ? 9 : 10;
     const noteLabelFont = hasLongNote ? 14 : 15;
     const minTitleWidth = hasLongNote ? 170 : 240;
-    const minDateCardW = 320;
+    const titleGap = hasLongNote ? 24 : 34;
+    // ภาพแคบ: ลดขนาดกล่องหมายเหตุเพื่อไม่ให้ทับหัวเรื่อง
+    const minDateCardW = Math.min(320, Math.max(200, innerX + innerW - 8 - titleX - titleGap - minTitleWidth));
     const noteInnerLeft = hasLongNote ? 88 : 92;
     const noteInnerRight = hasLongNote ? 24 : 28;
     const noteTextMaxWidth = hasLongNote ? 860 : 760;
@@ -463,14 +491,14 @@ const ImageRenderer = (() => {
     const dateCardY = heroY + (heroH - dateCardH) / 2;
     drawSoftPanel(ctx, dateCardX, dateCardY, dateCardW, dateCardH, 22, "#FFFFFF", "#F5F9FF", "#D8E3F2");
 
-    const titleMaxWidth = Math.max(minTitleWidth, dateCardX - titleX - (hasLongNote ? 24 : 34));
+    const titleMaxWidth = Math.max(80, dateCardX - titleX - titleGap);
     drawFittedText(ctx, {
       text: tmpl.oilSectionTitle,
       x: titleX,
       y: dateCardY + dateCardH / 2 - 2,
       maxWidth: titleMaxWidth,
       maxFontSize: hasLongNote ? 34 : 36,
-      minFontSize: hasLongNote ? 22 : 24,
+      minFontSize: 16,
       weight: "700",
       fillStyle: navy,
       align: "left",
@@ -547,23 +575,32 @@ const ImageRenderer = (() => {
     const tableX = innerX;
     const tableY = summaryY + summaryH + 30;
     const tableW = innerW;
-    const headerH = 100;
-    const rowH = 160;
-    const tableH = headerH + rowH;
-    const bandCount = oilBands.length;
-    const bandW = tableW / bandCount;
+    const bandW = tableW / tableCols;
+    const prices = routeData.computedPrices || routeData.basePrices || [];
+    const priceTexts = oilBands.map((_, i) => fmtPrice(i < prices.length ? prices[i] : 0));
+    const priceFontSize = getUniformFontSize(
+      ctx, priceTexts, bandW - 20,
+      Math.min(tmpl.priceFontSize, Math.floor(rowH * 0.4)), 14, "700"
+    );
+    const unitFontSize = getUniformFontSize(ctx, [tmpl.unitLabel], bandW - 20, 18, 12, "600");
+    const bandLabelFontSize = getUniformFontSize(
+      ctx, oilBands.map((band) => getBandDisplayLabel(band.label)), bandW - 16, 18, 10, "700"
+    );
+    // จัดราคา + หน่วย ให้อยู่กึ่งกลางช่องตามขนาดฟอนต์จริง
+    const priceBlockH = priceFontSize + 8 + unitFontSize;
+    const priceBlockTop = (rowH - priceBlockH) / 2;
+
+    ctx.save();
     rr(ctx, tableX, tableY, tableW, tableH, 12);
     ctx.fillStyle = "#FFFFFF";
     ctx.fill();
-    ctx.strokeStyle = "#BFD0EA";
-    ctx.lineWidth = 1.2;
-    ctx.stroke();
+    ctx.clip();
 
-    const tableHeaderGradient = ctx.createLinearGradient(0, tableY, 0, tableY + headerH);
-    tableHeaderGradient.addColorStop(0, "#073481");
-    tableHeaderGradient.addColorStop(1, "#052B70");
-    ctx.fillStyle = tableHeaderGradient;
-    ctx.fillRect(tableX, tableY, tableW, headerH);
+    const tableTitleGradient = ctx.createLinearGradient(0, tableY, 0, tableY + tableTitleH + bandLabelH);
+    tableTitleGradient.addColorStop(0, "#073481");
+    tableTitleGradient.addColorStop(1, "#052B70");
+    ctx.fillStyle = tableTitleGradient;
+    ctx.fillRect(tableX, tableY, tableW, tableTitleH);
 
     drawFittedText(ctx, {
       text: `เรทราคาน้ำมัน (${tmpl.priceUnit})`,
@@ -575,74 +612,76 @@ const ImageRenderer = (() => {
       weight: "700",
       fillStyle: "#FFFFFF",
     });
-    ctx.fillStyle = "rgba(255,255,255,0.55)";
-    ctx.fillRect(tableX, tableY + 52, tableW, 1);
 
-    oilBands.forEach((band, i) => {
-      const bx = tableX + bandW * i;
-      if (i > 0) {
-        ctx.fillStyle = "rgba(255,255,255,0.7)";
-        ctx.fillRect(bx, tableY + 52, 1, tableH - 52);
+    for (let row = 0; row < tableRows; row++) {
+      const labelY = tableY + tableTitleH + row * (bandLabelH + rowH);
+      const dataY = labelY + bandLabelH;
+      const rowBands = oilBands.slice(row * tableCols, (row + 1) * tableCols);
+
+      ctx.fillStyle = tableTitleGradient;
+      ctx.fillRect(tableX, labelY, tableW, bandLabelH);
+      ctx.fillStyle = "rgba(255,255,255,0.55)";
+      ctx.fillRect(tableX, labelY, tableW, 1);
+      ctx.fillStyle = line;
+      ctx.fillRect(tableX, dataY, tableW, 1);
+
+      // แถวสุดท้ายที่ช่วงไม่ครบ: ช่องว่างเป็นพื้นสีอ่อน
+      if (rowBands.length < tableCols) {
+        const emptyX = tableX + bandW * rowBands.length;
+        ctx.fillStyle = tmpl.surfaceTint;
+        ctx.fillRect(emptyX, labelY, tableX + tableW - emptyX, bandLabelH + rowH);
       }
-      const cellCenterX = bx + bandW / 2;
-      const cellTopY = tableY + 52;
-      const cellH = headerH - 52;
-      const centerY = cellTopY + cellH / 2;
 
-      drawFittedText(ctx, {
-        text: getBandDisplayLabel(band.label),
-        x: cellCenterX,
-        y: centerY,
-        maxWidth: bandW - 16,
-        maxFontSize: 18,
-        minFontSize: 10,
-        weight: "700",
-        fillStyle: "#FFFFFF",
-        align: "center",
-      });
-    });
+      rowBands.forEach((band, col) => {
+        const bx = tableX + bandW * col;
+        const index = row * tableCols + col;
+        if (col > 0) {
+          ctx.fillStyle = "rgba(255,255,255,0.7)";
+          ctx.fillRect(bx, labelY, 1, bandLabelH);
+          ctx.fillStyle = "#C5D3E8";
+          ctx.fillRect(bx, dataY, 1, rowH);
+        }
 
-    const dataY = tableY + headerH;
-    ctx.fillStyle = "#FFFFFF";
-    ctx.fillRect(tableX, dataY, tableW, rowH);
-    ctx.fillStyle = line;
-    ctx.fillRect(tableX, dataY, tableW, 1);
-    let vx = tableX;
-    Array(bandCount - 1).fill(bandW).forEach((w) => {
-      vx += w;
-      ctx.strokeStyle = "#C5D3E8";
-      ctx.lineWidth = 1;
-      ctx.beginPath();
-      ctx.moveTo(vx + 0.5, dataY);
-      ctx.lineTo(vx + 0.5, dataY + rowH);
-      ctx.stroke();
-    });
+        drawFittedText(ctx, {
+          text: getBandDisplayLabel(band.label),
+          x: bx + bandW / 2,
+          y: labelY + bandLabelH / 2,
+          maxWidth: bandW - 16,
+          maxFontSize: bandLabelFontSize,
+          minFontSize: bandLabelFontSize,
+          weight: "700",
+          fillStyle: "#FFFFFF",
+          align: "center",
+        });
 
-    const prices = routeData.computedPrices || routeData.basePrices || [];
-    oilBands.forEach((band, i) => {
-      const px = tableX + bandW * i;
-      const price = i < prices.length ? prices[i] : 0;
-      drawFittedText(ctx, {
-        text: fmtPrice(price),
-        x: px + bandW / 2,
-        y: dataY + rowH / 2 - 14,
-        maxWidth: bandW - 20,
-        maxFontSize: 38,
-        minFontSize: 24,
-        weight: "700",
-        fillStyle: navy,
+        drawFittedText(ctx, {
+          text: priceTexts[index],
+          x: bx + bandW / 2,
+          y: dataY + priceBlockTop + priceFontSize / 2,
+          maxWidth: bandW - 20,
+          maxFontSize: priceFontSize,
+          minFontSize: priceFontSize,
+          weight: "700",
+          fillStyle: navy,
+        });
+        drawFittedText(ctx, {
+          text: tmpl.unitLabel,
+          x: bx + bandW / 2,
+          y: dataY + priceBlockTop + priceFontSize + 8 + unitFontSize / 2,
+          maxWidth: bandW - 20,
+          maxFontSize: unitFontSize,
+          minFontSize: unitFontSize,
+          weight: "600",
+          fillStyle: "#35508F",
+        });
       });
-      drawFittedText(ctx, {
-        text: tmpl.unitLabel,
-        x: px + bandW / 2,
-        y: dataY + rowH / 2 + 28,
-        maxWidth: bandW - 20,
-        maxFontSize: 18,
-        minFontSize: 12,
-        weight: "600",
-        fillStyle: "#35508F",
-      });
-    });
+    }
+    ctx.restore();
+
+    rr(ctx, tableX, tableY, tableW, tableH, 12);
+    ctx.strokeStyle = "#BFD0EA";
+    ctx.lineWidth = 1.2;
+    ctx.stroke();
 
     // End clip
     ctx.restore();
