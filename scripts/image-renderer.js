@@ -191,6 +191,44 @@ const ImageRenderer = (() => {
     return { fontSize, lineCount: clipped.length, lineHeight };
   }
 
+  // ข้อความยาว: ลองบรรทัดเดียวก่อน ถ้าต้องเล็กกว่า minSingleLineSize ให้ตัดเป็น 2 บรรทัด
+  // ที่ช่องว่าง / หรือ - แทนการย่อจนอ่านไม่ออก
+  function layoutSummaryValue(ctx, text, maxWidth, {
+    maxFontSize = 28,
+    minSingleLineSize = 20,
+    minFontSize = 12,
+    weight = "700",
+  } = {}) {
+    const content = `${text ?? ""}`.trim();
+    const fits = (line) => ctx.measureText(line).width <= maxWidth;
+
+    for (let size = maxFontSize; size >= minSingleLineSize; size -= 0.5) {
+      withFont(ctx, weight, size);
+      if (fits(content)) return { lines: [content], fontSize: size };
+    }
+
+    const delimitedTokens = content.split(/(?<=[\s/\-])/);
+    // ไม่มีจุดตัด (คำยาวคำเดียว) → ตัดระดับตัวอักษรแทน
+    const tokens = delimitedTokens.length > 1 ? delimitedTokens : Array.from(content);
+    if (tokens.length > 1) {
+      for (let size = Math.min(maxFontSize, 24); size >= minFontSize; size -= 0.5) {
+        withFont(ctx, weight, size);
+        // หาจุดตัดที่ทำให้สองบรรทัดยาวใกล้เคียงกันที่สุด
+        let best = null;
+        for (let i = 1; i < tokens.length; i += 1) {
+          const first = tokens.slice(0, i).join("").trim();
+          const second = tokens.slice(i).join("").trim();
+          if (!fits(first) || !fits(second)) continue;
+          const widest = Math.max(ctx.measureText(first).width, ctx.measureText(second).width);
+          if (!best || widest < best.widest) best = { lines: [first, second], widest };
+        }
+        if (best) return { lines: best.lines, fontSize: size };
+      }
+    }
+
+    return { lines: [content], fontSize: getFittedFontSize(ctx, content, maxWidth, minSingleLineSize, 11, weight) };
+  }
+
   function drawFuelIcon(ctx, x, y, size, fill = tmpl.bandIconColor) {
     const scale = size / 960;
     ctx.save();
@@ -544,30 +582,34 @@ const ImageRenderer = (() => {
       { icon: ROAD_ICON_PATH, label: tmpl.distanceLabel, value: fmtDistance(routeData.distance) },
       { icon: TRUCK_ICON_PATH, label: tmpl.vehicleLabel, value: routeData.vehicleType },
     ];
+    // ภาพแคบ: ย่อไอคอนและระยะห่างตามสัดส่วน เพื่อเหลือที่ให้ข้อความ (ขนาดมาตรฐาน scale = 1)
+    const summaryScale = Math.min(1, summaryW / 380);
+    const summaryTextOffset = 136 * summaryScale;
+    const summaryTextW = summaryW - summaryTextOffset - 24 * summaryScale;
     summaryItems.forEach((item, i) => {
       const sx = innerX + summaryW * i;
-      drawCircleIcon(ctx, item.icon, sx + 72, summaryY + summaryH / 2, 68, "#E9EEF7", navy);
+      drawCircleIcon(ctx, item.icon, sx + 72 * summaryScale, summaryY + summaryH / 2, 68 * summaryScale, "#E9EEF7", navy);
+      const valueLayout = layoutSummaryValue(ctx, item.value, summaryTextW);
+      const isTwoLines = valueLayout.lines.length > 1;
+      const valueLineH = valueLayout.fontSize * 1.18;
       drawFittedText(ctx, {
         text: item.label,
-        x: sx + 136,
-        y: summaryY + 48,
-        maxWidth: summaryW - 160,
+        x: sx + summaryTextOffset,
+        y: summaryY + (isTwoLines ? 34 : 48),
+        maxWidth: summaryTextW,
         maxFontSize: 20,
         minFontSize: 14,
         weight: "500",
         fillStyle: "#1E293B",
         align: "left",
       });
-      drawFittedText(ctx, {
-        text: item.value,
-        x: sx + 136,
-        y: summaryY + 88,
-        maxWidth: summaryW - 160,
-        maxFontSize: 28,
-        minFontSize: 11,
-        weight: "700",
-        fillStyle: navy,
-        align: "left",
+      withFont(ctx, "700", valueLayout.fontSize);
+      ctx.fillStyle = navy;
+      ctx.textAlign = "left";
+      ctx.textBaseline = "middle";
+      const firstValueY = isTwoLines ? summaryY + 66 : summaryY + 88;
+      valueLayout.lines.forEach((valueLine, lineIndex) => {
+        ctx.fillText(valueLine, sx + summaryTextOffset, firstValueY + valueLineH * lineIndex);
       });
     });
 
