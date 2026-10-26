@@ -379,167 +379,99 @@
   }
 
   // ── Oil Band Editor ───────────────────────────────────────────────────────
-  function getOilBandOptionsForRow(currentBandId) {
-    const sourceBands = typeof DataStore.getSourceOilBands === "function"
-      ? DataStore.getSourceOilBands()
-      : [];
-    const selectedIds = new Set(
-      typeof DataStore.getSelectedBandIds === "function"
-        ? DataStore.getSelectedBandIds()
-        : state.oilBands.map((band) => band.id)
-    );
-
-    return sourceBands.filter((band) => band.id === currentBandId || !selectedIds.has(band.id));
+  // เลือกช่วงน้ำมันแบบ "ช่วงเริ่มต้น + จำนวนช่วง" ต่อเนื่องกัน แล้วอัพเดต preview ทันที
+  function getBandWindow() {
+    const sourceBands = DataStore.getSourceOilBands();
+    const selectedIds = DataStore.getSelectedBandIds();
+    const firstIndex = sourceBands.findIndex((band) => band.id === selectedIds[0]);
+    return {
+      sourceBands,
+      start: Math.max(firstIndex, 0),
+      count: Math.max(selectedIds.length, 1),
+    };
   }
 
-  function getPreferredBandToAdd() {
-    const sourceBands = typeof DataStore.getSourceOilBands === "function"
-      ? DataStore.getSourceOilBands()
-      : [];
-    const selectedIds = typeof DataStore.getSelectedBandIds === "function"
-      ? DataStore.getSelectedBandIds()
-      : state.oilBands.map((band) => band.id);
-    const selectedIdSet = new Set(selectedIds);
-    const selectedIndexes = selectedIds
-      .map((bandId) => sourceBands.findIndex((band) => band.id === bandId))
-      .filter((index) => index >= 0)
-      .sort((a, b) => a - b);
-    const availableBands = sourceBands
-      .map((band, index) => ({ band, sourceIndex: index }))
-      .filter(({ band }) => !selectedIdSet.has(band.id));
-
-    if (availableBands.length === 0) return null;
-    if (selectedIndexes.length === 0) {
-      return { band: availableBands[0].band, insertIndex: 0 };
-    }
-
-    const rankedBands = availableBands.map((item) => {
-      const distance = Math.min(...selectedIndexes.map((index) => Math.abs(item.sourceIndex - index)));
-      const insertIndex = selectedIndexes.filter((index) => index < item.sourceIndex).length;
-      const isInsideCurrentWindow =
-        item.sourceIndex > selectedIndexes[0] &&
-        item.sourceIndex < selectedIndexes[selectedIndexes.length - 1];
-
-      return {
-        ...item,
-        distance,
-        insertIndex,
-        isInsideCurrentWindow,
-      };
-    });
-
-    rankedBands.sort((a, b) => {
-      if (a.distance !== b.distance) return a.distance - b.distance;
-      if (a.isInsideCurrentWindow !== b.isInsideCurrentWindow) {
-        return a.isInsideCurrentWindow ? -1 : 1;
-      }
-      return a.sourceIndex - b.sourceIndex;
-    });
-
-    const bestMatch = rankedBands[0];
-    return {
-      band: bestMatch.band,
-      insertIndex: bestMatch.insertIndex,
-    };
+  function applyBandWindow(start, count) {
+    const sourceBands = DataStore.getSourceOilBands();
+    const total = sourceBands.length;
+    if (total === 0) return;
+    const nextCount = Math.max(1, Math.min(count, total));
+    const nextStart = Math.max(0, Math.min(start, total - nextCount));
+    DataStore.setSelectedBandIds(
+      sourceBands.slice(nextStart, nextStart + nextCount).map((band) => band.id)
+    );
+    refreshStateFromStore();
+    populateOilBandEditor();
+    populateRouteDiscountTable();
+    schedulePreview();
   }
 
   function populateOilBandEditor() {
     const container = $("oil-band-editor");
     if (!container) return;
-    container.innerHTML = "";
 
-    state.oilBands.forEach((band, i) => {
-      const datalistId = `oil-band-options-${band.id}`;
-      const optionsMarkup = getOilBandOptionsForRow(band.id)
-        .map((option) => `<option value="${option.label}"></option>`)
-        .join("");
-      const row = document.createElement("div");
-      row.className = "oil-band-row";
-      row.dataset.bandId = band.id;
-      row.innerHTML = `
-        <label>ช่วงที่ ${i + 1}</label>
-        <input type="text" class="band-label-input" data-band-id="${band.id}"
-          value="${band.label}" placeholder="เลือกหรือระบุช่วงน้ำมัน" list="${datalistId}" />
-        <datalist id="${datalistId}">
-          ${optionsMarkup}
-        </datalist>
-        <button class="btn btn--ghost btn--xs band-remove-btn" data-band-id="${band.id}"
-          title="ลบช่วงนี้" aria-label="ลบ ${band.label}">&times;</button>
-      `;
-      container.appendChild(row);
+    const { sourceBands, start, count } = getBandWindow();
+    const total = sourceBands.length;
+    const end = Math.min(start + count, total) - 1;
+    const rangeText = state.oilBands.length
+      ? `${state.oilBands[0].min.toFixed(2)} – ${state.oilBands[state.oilBands.length - 1].max.toFixed(2)}`
+      : "-";
+    const gridMarkup = sourceBands
+      .map((band, i) => {
+        const isSelected = i >= start && i <= end;
+        return `
+          <button type="button" class="band-cell${isSelected ? " band-cell--selected" : ""}"
+            data-index="${i}" aria-pressed="${isSelected}"
+            title="เริ่มที่ ${escapeHtml(band.label)}">
+            ${isSelected ? `<span class="band-cell__index">${i - start + 1}</span>` : ""}
+            <span class="band-cell__min">${band.min.toFixed(2)}</span>
+            <span class="band-cell__max">ถึง ${band.max.toFixed(2)}</span>
+          </button>`;
+      })
+      .join("");
+
+    container.innerHTML = `
+      <div class="band-summary">
+        <span class="band-summary__caption">ช่วงที่จะแสดงในภาพ</span>
+        <strong class="band-summary__range">${rangeText} <small>บาท/ลิตร</small></strong>
+      </div>
+      <div class="band-controls">
+        <div class="band-control">
+          <span class="band-control__label">เลื่อนช่วง</span>
+          <div class="band-control__buttons">
+            <button type="button" class="band-step-btn" id="band-shift-down"
+              aria-label="เลื่อนลง 1 ช่วง" title="เลื่อนลง 1 ช่วง"${start <= 0 ? " disabled" : ""}>&lsaquo;</button>
+            <button type="button" class="band-step-btn" id="band-shift-up"
+              aria-label="เลื่อนขึ้น 1 ช่วง" title="เลื่อนขึ้น 1 ช่วง"${end >= total - 1 ? " disabled" : ""}>&rsaquo;</button>
+          </div>
+        </div>
+        <div class="band-control">
+          <span class="band-control__label">จำนวนช่วง</span>
+          <div class="band-control__buttons">
+            <button type="button" class="band-step-btn" id="band-count-down"
+              aria-label="ลดจำนวนช่วง"${count <= 1 ? " disabled" : ""}>&minus;</button>
+            <span class="band-control__value" aria-live="polite">${count}</span>
+            <button type="button" class="band-step-btn" id="band-count-up"
+              aria-label="เพิ่มจำนวนช่วง"${end >= total - 1 ? " disabled" : ""}>+</button>
+          </div>
+        </div>
+      </div>
+      <div class="band-grid" role="group" aria-label="ช่วงราคาน้ำมันทั้งหมด">${gridMarkup}</div>
+    `;
+
+    $("band-shift-down").addEventListener("click", () => applyBandWindow(start - 1, count));
+    $("band-shift-up").addEventListener("click", () => applyBandWindow(start + 1, count));
+    $("band-count-down").addEventListener("click", () => applyBandWindow(start, count - 1));
+    $("band-count-up").addEventListener("click", () => applyBandWindow(start, count + 1));
+    container.querySelectorAll(".band-cell").forEach((cell) => {
+      cell.addEventListener("click", () => applyBandWindow(Number(cell.dataset.index), count));
     });
 
-    container.querySelectorAll(".band-label-input").forEach((input) => {
-      input.addEventListener("change", (e) => {
-        const bandId = e.target.dataset.bandId;
-        const newLabel = e.target.value.trim();
-        if (newLabel) {
-          DataStore.updateOilBand(bandId, { label: newLabel });
-          state.oilBands = DataStore.getOilBands();
-          syncWorkspaceSummary();
-          showToast("✓ อัพเดต label ช่วงน้ำมันแล้ว", "success");
-          schedulePreview();
-        }
-      });
-    });
-
-    container.querySelectorAll(".band-remove-btn").forEach((btn) => {
-      btn.addEventListener("click", (e) => {
-        e.stopPropagation();
-        const bandId = e.target.dataset.bandId;
-        if (state.oilBands.length <= 1) {
-          return showToast("ต้องมีอย่างน้อย 1 ช่วง", "error");
-        }
-        const removeIndex = state.oilBands.findIndex((band) => band.id === bandId);
-        DataStore.removeOilBand(bandId);
-        PricingEngine.syncOverridesAfterBandRemove(removeIndex, state.oilBands.length - 1);
-        refreshStateFromStore();
-        populateOilBandEditor();
-        populateRouteDiscountTable();
-        showToast("✓ ลบช่วงน้ำมันแล้ว", "success");
-        schedulePreview();
-      });
-    });
-
-    $("apply-bands").onclick = () => {
-      const inputs = container.querySelectorAll(".band-label-input");
-      inputs.forEach((input) => {
-        const bandId = input.dataset.bandId;
-        const newLabel = input.value.trim();
-        if (newLabel) {
-          DataStore.updateOilBand(bandId, { label: newLabel });
-        }
-      });
-      state.oilBands = DataStore.getOilBands();
-      syncWorkspaceSummary();
-      showToast("✓ อัพเดตช่วงน้ำมันแล้ว", "success");
-      schedulePreview();
-    };
-
-    $("add-band").onclick = () => {
-      const preferredBand = getPreferredBandToAdd();
-      const insertIndex = preferredBand ? preferredBand.insertIndex : state.oilBands.length;
-      let newLabel = preferredBand ? preferredBand.band.label : "42.01 - 43.00";
-
-      if (!preferredBand) {
-        const lastBand = state.oilBands[state.oilBands.length - 1];
-        if (lastBand) {
-          const m = lastBand.label.match(/(\d+\.?\d*)\s*-\s*(\d+\.?\d*)/);
-          if (m) {
-            const lastMax = parseFloat(m[2]);
-            newLabel = (lastMax + 0.01).toFixed(2) + " - " + (lastMax + 1).toFixed(2);
-          }
-        }
-      }
-
-      DataStore.addOilBand(newLabel, insertIndex);
-      PricingEngine.syncOverridesAfterBandInsert(insertIndex, state.oilBands.length + 1);
-      refreshStateFromStore();
-      populateOilBandEditor();
-      populateRouteDiscountTable();
-      showToast("✓ เพิ่มช่วงน้ำมันใหม่แล้ว", "success");
-      schedulePreview();
-    };
+    const grid = container.querySelector(".band-grid");
+    const firstSelected = container.querySelector(".band-cell--selected");
+    if (grid && firstSelected) {
+      grid.scrollTop = Math.max(firstSelected.offsetTop - grid.offsetTop - 8, 0);
+    }
   }
 
   // ── Template Controls ─────────────────────────────────────────────────────
